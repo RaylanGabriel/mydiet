@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import { FoodAutocomplete } from '@/components/food-autocomplete'
+import { FoodPhotoScanner, type DetectedFood } from '@/components/food-photo-scanner'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -52,6 +53,20 @@ export default function AdicionarPage() {
       ...items,
       { id: Date.now().toString(), nome: '', quantidade: '100g', calorias: 0, proteina: 0, carboidratos: 0, gordura: 0 }
     ])
+  }
+
+  const addDetectedItems = (detected: DetectedFood[]) => {
+    const stamp = Date.now()
+    const newItems = detected.map((d, i) => ({
+      id: `${stamp}-${i}`,
+      nome: d.nome,
+      quantidade: d.quantidade,
+      calorias: Math.round(d.calorias),
+      proteina: d.proteina,
+      carboidratos: d.carboidratos,
+      gordura: d.gordura,
+    }))
+    setItems((prev) => [...prev.filter((item) => item.nome.trim() !== ''), ...newItems])
   }
 
   const removeItem = (id: string) => {
@@ -185,6 +200,8 @@ export default function AdicionarPage() {
               </Field>
             </CardContent>
           </Card>
+
+          <FoodPhotoScanner onAddItems={addDetectedItems} />
 
           {/* Meal items */}
           <Card>
