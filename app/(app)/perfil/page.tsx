@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
 import { LogOut, Save, User, Droplets, Flame, Target, ChevronRight } from 'lucide-react'
 import { InstallAppCard } from '@/components/install-app-card'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function PerfilPage() {
   const router = useRouter()
@@ -171,6 +172,16 @@ export default function PerfilPage() {
                   {saving ? 'Salvando...' : 'Salvar Alteracoes'}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Aparencia</CardTitle>
+              <CardDescription>Escolha entre tema claro, escuro ou o do sistema</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ThemeToggle />
             </CardContent>
           </Card>
 
