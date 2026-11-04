@@ -45,7 +45,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
             <Leaf className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">MeuDiet</h1>
+          <h1 className="text-2xl font-bold text-foreground">MyDiet</h1>
           <p className="text-muted-foreground text-sm">Controle sua dieta com facilidade</p>
         </div>
 

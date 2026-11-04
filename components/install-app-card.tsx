@@ -55,7 +55,7 @@ export function InstallAppCard() {
           Instalar no celular
         </CardTitle>
         <CardDescription>
-          Use o MeuDiet como aplicativo, com ícone na tela inicial e em tela cheia.
+          Use o MyDiet como aplicativo, com ícone na tela inicial e em tela cheia.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
