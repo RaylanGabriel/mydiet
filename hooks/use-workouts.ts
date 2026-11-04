@@ -1,8 +1,38 @@
 'use client'
 
-import useSWR from 'swr'
+import useSWR, { mutate as globalMutate } from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import type { Exercise, Workout, WorkoutExercise, WorkoutSession } from '@/lib/workout-types'
+import type { PlanWorkout } from '@/lib/fitness-plan'
+
+const COVER_BUCKET = 'workout-covers'
+const MAX_COVER_BYTES = 5 * 1024 * 1024
+const ALLOWED_COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+function revalidateMonthSessions() {
+  return globalMutate((key) => Array.isArray(key) && key[0] === 'month-sessions')
+}
+
+async function fetchMonthSessions(year: number, month: number): Promise<WorkoutSession[]> {
+  const supabase = createClient()
+  const start = new Date(year, month, 1)
+  const end = new Date(year, month + 1, 1)
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('*, workout:workouts(id, nome, capa_url)')
+    .gte('iniciado_em', start.toISOString())
+    .lt('iniciado_em', end.toISOString())
+    .order('iniciado_em')
+  if (error) throw error
+  return data as WorkoutSession[]
+}
+
+export function useMonthSessions(year: number, month: number) {
+  const { data, error, isLoading } = useSWR(['month-sessions', year, month], () =>
+    fetchMonthSessions(year, month),
+  )
+  return { sessions: data ?? [], error, isLoading }
+}
 
 const WORKOUT_SELECT = '*, workout_exercises(*, exercise:exercises(*))'
 
@@ -88,20 +118,83 @@ export function useWorkouts() {
     return created.id as string
   }
 
-  return { workouts: data ?? [], error, isLoading, mutate, createWorkout }
+  const createFromPlan = async (planWorkouts: PlanWorkout[]) => {
+    const userId = await requireUserId()
+    const supabase = createClient()
+    const names = Array.from(new Set(planWorkouts.flatMap((w) => w.exercicios.map((ex) => ex.nome))))
+    const { data: library, error: libraryError } = await supabase
+      .from('exercises')
+      .select('id, nome')
+      .is('user_id', null)
+      .in('nome', names)
+    if (libraryError) throw libraryError
+    const idByName = new Map((library ?? []).map((ex) => [ex.nome as string, ex.id as string]))
+
+    const baseOrder = data?.length ?? 0
+    for (const [i, planWorkout] of planWorkouts.entries()) {
+      const { data: created, error: insertError } = await supabase
+        .from('workouts')
+        .insert({
+          user_id: userId,
+          nome: `${planWorkout.nome} - ${planWorkout.foco}`,
+          descricao: 'Criado pelo plano sugerido',
+          dias_semana: planWorkout.dias_semana,
+          ordem: baseOrder + i,
+        })
+        .select('id')
+        .single()
+      if (insertError) throw insertError
+
+      const rows = planWorkout.exercicios
+        .filter((ex) => idByName.has(ex.nome))
+        .map((ex, ordem) => ({
+          workout_id: created.id,
+          user_id: userId,
+          exercise_id: idByName.get(ex.nome),
+          series: ex.series,
+          repeticoes: ex.repeticoes,
+          descanso_segundos: ex.descanso_segundos,
+          ordem,
+        }))
+      if (rows.length > 0) {
+        const { error: exercisesError } = await supabase.from('workout_exercises').insert(rows)
+        if (exercisesError) throw exercisesError
+      }
+    }
+    await mutate()
+  }
+
+  return { workouts: data ?? [], error, isLoading, mutate, createWorkout, createFromPlan }
 }
 
 export function useWorkout(id: string) {
   const { data, error, isLoading, mutate } = useSWR(['workout', id], () => fetchWorkout(id))
 
-  const updateWorkout = async (updates: Partial<Pick<Workout, 'nome' | 'descricao' | 'dias_semana'>>) => {
+  const updateWorkout = async (
+    updates: Partial<Pick<Workout, 'nome' | 'descricao' | 'dias_semana' | 'capa_url'>>,
+  ) => {
     const supabase = createClient()
     const { error: updateError } = await supabase
       .from('workouts')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (updateError) throw updateError
-    await mutate()
+    await Promise.all([mutate(), globalMutate('workouts')])
+  }
+
+  const uploadCover = async (file: File) => {
+    if (!ALLOWED_COVER_TYPES.includes(file.type)) throw new Error('Use uma imagem JPG, PNG ou WEBP.')
+    if (file.size > MAX_COVER_BYTES) throw new Error('A imagem deve ter no máximo 5 MB.')
+    const userId = await requireUserId()
+    const supabase = createClient()
+    const ext = file.type.split('/')[1]
+    const path = `${userId}/${id}-${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from(COVER_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: true })
+    if (uploadError) throw uploadError
+    const { data: publicUrl } = supabase.storage.from(COVER_BUCKET).getPublicUrl(path)
+    await updateWorkout({ capa_url: publicUrl.publicUrl })
   }
 
   const deleteWorkout = async () => {
@@ -172,6 +265,7 @@ export function useWorkout(id: string) {
     isLoading,
     mutate,
     updateWorkout,
+    uploadCover,
     deleteWorkout,
     addExercise,
     updateExercise,
@@ -260,14 +354,14 @@ export function useWorkoutSessions() {
       if (setsError) throw setsError
     }
 
-    await mutate()
+    await Promise.all([mutate(), revalidateMonthSessions()])
   }
 
   const deleteSession = async (sessionId: string) => {
     const supabase = createClient()
     const { error: deleteError } = await supabase.from('workout_sessions').delete().eq('id', sessionId)
     if (deleteError) throw deleteError
-    await mutate()
+    await Promise.all([mutate(), revalidateMonthSessions()])
   }
 
   return { sessions: data ?? [], error, isLoading, saveSession, deleteSession }

@@ -11,6 +11,7 @@ import { useWorkout } from '@/hooks/use-workouts'
 import { ExercisePicker } from '@/components/workouts/exercise-picker'
 import { WorkoutExerciseEditor } from '@/components/workouts/workout-exercise-editor'
 import { DaysOfWeekPicker } from '@/components/workouts/days-of-week-picker'
+import { CoverPicker } from '@/components/workouts/cover-picker'
 import { estimateWorkoutMinutes } from '@/lib/workout-types'
 
 export default function EditarTreinoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,7 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
     workout,
     isLoading,
     updateWorkout,
+    uploadCover,
     deleteWorkout,
     addExercise,
     updateExercise,
@@ -97,6 +99,16 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
               Toque na lixeira novamente para excluir este treino.
             </p>
           )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-foreground">Foto de capa</span>
+            <CoverPicker
+              workoutName={workout.nome}
+              coverUrl={workout.capa_url}
+              onUpload={uploadCover}
+              onSelectPreset={(url) => updateWorkout({ capa_url: url })}
+            />
+          </div>
 
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-foreground">Dias da semana</span>

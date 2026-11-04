@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Dumbbell, Home, Plus, User } from 'lucide-react'
+import { Dumbbell, Home, Plus, Target, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'Início' },
   { href: '/adicionar', icon: Plus, label: 'Refeição' },
+  { href: '/plano', icon: Target, label: 'Plano' },
   { href: '/treinos', icon: Dumbbell, label: 'Treinos' },
   { href: '/perfil', icon: User, label: 'Perfil' },
 ]

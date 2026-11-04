@@ -21,6 +21,14 @@ export interface Profile {
   nome: string | null
   meta_calorias_diarias: number
   meta_agua_ml: number
+  sexo: 'masculino' | 'feminino' | null
+  idade: number | null
+  altura_cm: number | null
+  peso_kg: number | null
+  nivel_atividade: 'sedentario' | 'leve' | 'moderado' | 'intenso' | 'muito_intenso' | null
+  objetivo: 'emagrecer' | 'manter' | 'ganhar_massa' | 'condicionamento' | null
+  experiencia_treino: 'iniciante' | 'intermediario' | 'avancado' | null
+  dias_treino_semana: number | null
   created_at: string
   updated_at: string
 }

@@ -28,8 +28,20 @@ export interface Workout {
   descricao: string | null
   dias_semana: number[]
   ordem: number
+  capa_url: string | null
   created_at: string
   workout_exercises: WorkoutExercise[]
+}
+
+export const COVER_PRESETS = [
+  { url: '/covers/peito.png', label: 'Peito e tríceps' },
+  { url: '/covers/costas.png', label: 'Costas e bíceps' },
+  { url: '/covers/pernas.png', label: 'Pernas' },
+  { url: '/covers/ombros.png', label: 'Ombros' },
+] as const
+
+export function workoutLetter(nome: string) {
+  return nome.replace(/^treino\s*/i, '').charAt(0).toUpperCase() || 'T'
 }
 
 export interface WorkoutSession {
@@ -41,6 +53,7 @@ export interface WorkoutSession {
   duracao_segundos: number
   volume_total_kg: number
   series_concluidas: number
+  workout?: { id: string; nome: string; capa_url: string | null } | null
 }
 
 export const GRUPOS_MUSCULARES = [

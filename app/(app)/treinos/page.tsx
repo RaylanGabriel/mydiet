@@ -9,7 +9,14 @@ import { Spinner } from '@/components/ui/spinner'
 import { useWorkouts, useWorkoutSessions } from '@/hooks/use-workouts'
 import { CreateWorkoutDialog } from '@/components/workouts/create-workout-dialog'
 import { WorkoutHistory } from '@/components/workouts/workout-history'
-import { DIAS_SEMANA, estimateWorkoutMinutes, muscleGroupsOf, type Workout } from '@/lib/workout-types'
+import { WorkoutCalendar } from '@/components/workouts/workout-calendar'
+import {
+  DIAS_SEMANA,
+  estimateWorkoutMinutes,
+  muscleGroupsOf,
+  workoutLetter,
+  type Workout,
+} from '@/lib/workout-types'
 import { cn } from '@/lib/utils'
 
 export default function TreinosPage() {
@@ -101,6 +108,8 @@ export default function TreinosPage() {
             )}
           </section>
 
+          <WorkoutCalendar />
+
           <WorkoutHistory />
         </div>
       </main>
@@ -123,15 +132,27 @@ function WorkoutCard({ workout, isToday }: { workout: Workout; isToday: boolean 
   const exercises = workout.workout_exercises
   const groups = muscleGroupsOf(exercises)
   const minutes = estimateWorkoutMinutes(exercises)
-  const letter = workout.nome.replace(/^treino\s*/i, '').charAt(0).toUpperCase() || 'T'
+  const letter = workoutLetter(workout.nome)
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 rounded-2xl border bg-card p-4',
+        'flex flex-col gap-4 overflow-hidden rounded-2xl border bg-card p-4',
         isToday ? 'border-primary' : 'border-border',
       )}
     >
+      {workout.capa_url && (
+        <div className="relative -mx-4 -mt-4 aspect-[16/6] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={workout.capa_url} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/10 to-transparent" />
+          {isToday && (
+            <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
+              Hoje
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-lg font-bold text-secondary-foreground">
           {letter}

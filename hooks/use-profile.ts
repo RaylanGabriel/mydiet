@@ -31,12 +31,13 @@ export function useProfile() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', user.id)
+    if (updateError) throw updateError
 
-    mutate()
+    await mutate()
   }
 
   return {

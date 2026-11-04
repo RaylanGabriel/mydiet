@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
-import { LogOut, Save, User, Droplets, Flame } from 'lucide-react'
+import Link from 'next/link'
+import { LogOut, Save, User, Droplets, Flame, Target, ChevronRight } from 'lucide-react'
 import { InstallAppCard } from '@/components/install-app-card'
 
 export default function PerfilPage() {
@@ -86,6 +87,22 @@ export default function PerfilPage() {
       {/* Content */}
       <main className="flex-1 px-4 py-6">
         <div className="max-w-lg mx-auto space-y-6">
+          <Link
+            href="/plano"
+            className="flex items-center gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 transition-colors hover:bg-primary/15"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Target className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="flex-1">
+              <span className="block text-sm font-semibold text-foreground">Dados corporais e plano</span>
+              <span className="block text-xs text-muted-foreground">
+                Peso, altura, objetivo e sugestões de dieta e treino
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          </Link>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Configuracoes do Perfil</CardTitle>
