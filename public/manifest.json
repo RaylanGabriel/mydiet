@@ -1,7 +1,7 @@
 {
   "id": "/dashboard",
-  "name": "MeuDiet - Dieta e Treinos",
-  "short_name": "MeuDiet",
+  "name": "MyDiet - Dieta e Treinos",
+  "short_name": "MyDiet",
   "description": "Acompanhe sua dieta, hidratação e treinos de musculação.",
   "start_url": "/dashboard",
   "scope": "/",

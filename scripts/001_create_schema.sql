@@ -1,4 +1,4 @@
--- MeuDiet Database Schema
+-- MyDiet Database Schema
 -- Diet tracking and meal planning app
 
 -- Profiles table (extends auth.users)
