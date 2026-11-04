@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { signUpAction } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,26 +25,26 @@ export default function CadastroPage() {
     setError(null)
     setLoading(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || 
-          `${window.location.origin}/dashboard`,
-        data: {
-          nome,
-        },
-      },
-    })
-
-    if (error) {
-      setError(error.message)
+    const result = await signUpAction({ nome, email, password })
+    if (!result.ok) {
+      setError(result.error)
       setLoading(false)
       return
     }
 
-    router.push('/auth/verificar-email')
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+
+    if (error) {
+      router.push('/auth/login')
+      return
+    }
+
+    router.push('/dashboard')
+    router.refresh()
   }
 
   return (
@@ -100,9 +101,12 @@ export default function CadastroPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     autoComplete="new-password"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Mínimo de 8 caracteres, com letras e números.
+                  </p>
                 </Field>
               </FieldGroup>
 
