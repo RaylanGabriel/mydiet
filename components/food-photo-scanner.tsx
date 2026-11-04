@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Link from 'next/link'
 import { Camera, ImagePlus, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -156,6 +157,14 @@ export function FoodPhotoScanner({ onAddItems }: FoodPhotoScannerProps) {
             )}
 
             {result.observacao && <p className="text-xs leading-relaxed text-muted-foreground">{result.observacao}</p>}
+
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Valores estranhos?{' '}
+              <Link href="/tabela" target="_blank" className="font-medium text-primary underline underline-offset-2">
+                Confira na tabela TACO/TBCA
+              </Link>{' '}
+              e ajuste os itens depois de adicionar.
+            </p>
 
             {result.itens.length > 0 && (
               <Button

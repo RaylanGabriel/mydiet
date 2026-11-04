@@ -10,7 +10,7 @@ import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import { FoodAutocomplete } from '@/components/food-autocomplete'
 import { FoodPhotoScanner, type DetectedFood } from '@/components/food-photo-scanner'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 const mealTypes = [
@@ -159,6 +159,13 @@ export default function AdicionarPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-lg font-semibold">Adicionar Refeicao</h1>
+          <Link
+            href="/tabela"
+            className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-muted"
+          >
+            <BookOpen className="w-4 h-4" aria-hidden="true" />
+            Tabela TACO/TBCA
+          </Link>
         </div>
       </header>
 
