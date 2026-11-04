@@ -63,7 +63,7 @@ export function CoverPicker({ workoutName, coverUrl, onUpload, onSelectPreset }:
           )}
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => inputRef.current?.click()}>
             <Camera className="h-4 w-4" />
-            {coverUrl ? 'Trocar foto' : 'Enviar foto'}
+            {coverUrl ? 'Trocar foto' : 'Escolher da galeria'}
           </Button>
         </div>
       </div>
