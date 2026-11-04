@@ -124,11 +124,11 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
         </label>
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Altura (cm)</span>
-          <Input inputMode="numeric" placeholder="175" value={altura} onChange={(e) => setAltura(e.target.value)} />
+          <Input inputMode="numeric" placeholder="180" value={altura} onChange={(e) => setAltura(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Peso (kg)</span>
-          <Input inputMode="decimal" placeholder="72,5" value={peso} onChange={(e) => setPeso(e.target.value)} />
+          <Input inputMode="decimal" placeholder="85" value={peso} onChange={(e) => setPeso(e.target.value)} />
         </label>
       </div>
 
