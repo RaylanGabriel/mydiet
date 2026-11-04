@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import { LogOut, Save, User, Droplets, Flame } from 'lucide-react'
+import { InstallAppCard } from '@/components/install-app-card'
 
 export default function PerfilPage() {
   const router = useRouter()
@@ -155,6 +156,8 @@ export default function PerfilPage() {
               </form>
             </CardContent>
           </Card>
+
+          <InstallAppCard />
 
           <Card>
             <CardHeader>

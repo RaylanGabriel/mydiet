@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'MeuDiet - Controle de Dieta',
-  description: 'Acompanhe sua dieta diária, controle calorias e substitua alimentos com facilidade.',
+  title: 'MeuDiet - Dieta e Treinos',
+  description: 'Acompanhe sua dieta, hidratação e treinos de musculação (Treino A, B, C) em um só app.',
   generator: 'v0.app',
   manifest: '/manifest.json',
   appleWebApp: {
