@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import { FoodAutocomplete } from '@/components/food-autocomplete'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { FoodPhotoScanner, type DetectedFood } from '@/components/food-photo-scanner'
+import { ArrowLeft, BookOpen, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 const mealTypes = [
@@ -52,6 +53,20 @@ export default function AdicionarPage() {
       ...items,
       { id: Date.now().toString(), nome: '', quantidade: '100g', calorias: 0, proteina: 0, carboidratos: 0, gordura: 0 }
     ])
+  }
+
+  const addDetectedItems = (detected: DetectedFood[]) => {
+    const stamp = Date.now()
+    const newItems = detected.map((d, i) => ({
+      id: `${stamp}-${i}`,
+      nome: d.nome,
+      quantidade: d.quantidade,
+      calorias: Math.round(d.calorias),
+      proteina: d.proteina,
+      carboidratos: d.carboidratos,
+      gordura: d.gordura,
+    }))
+    setItems((prev) => [...prev.filter((item) => item.nome.trim() !== ''), ...newItems])
   }
 
   const removeItem = (id: string) => {
@@ -144,6 +159,13 @@ export default function AdicionarPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-lg font-semibold">Adicionar Refeicao</h1>
+          <Link
+            href="/tabela"
+            className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-muted"
+          >
+            <BookOpen className="w-4 h-4" aria-hidden="true" />
+            Tabela TACO/TBCA
+          </Link>
         </div>
       </header>
 
@@ -185,6 +207,8 @@ export default function AdicionarPage() {
               </Field>
             </CardContent>
           </Card>
+
+          <FoodPhotoScanner onAddItems={addDetectedItems} />
 
           {/* Meal items */}
           <Card>
