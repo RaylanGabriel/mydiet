@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Camera, Check, ImageIcon, Trash2 } from 'lucide-react'
+import { Camera, Check, ImageIcon, ImagePlus, Trash2 } from 'lucide-react'
+import { compressImage } from '@/lib/image-utils'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { COVER_PRESETS } from '@/lib/workout-types'
@@ -16,6 +17,7 @@ interface CoverPickerProps {
 
 export function CoverPicker({ workoutName, coverUrl, onUpload, onSelectPreset }: CoverPickerProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
@@ -30,6 +32,12 @@ export function CoverPicker({ workoutName, coverUrl, onUpload, onSelectPreset }:
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (file) run(async () => onUpload(await compressImage(file)))
   }
 
   return (
@@ -61,9 +69,12 @@ export function CoverPicker({ workoutName, coverUrl, onUpload, onSelectPreset }:
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
-          <Button size="sm" variant="secondary" disabled={busy} onClick={() => inputRef.current?.click()}>
+          <Button size="icon" variant="secondary" aria-label="Tirar foto com a câmera" disabled={busy} onClick={() => cameraRef.current?.click()}>
             <Camera className="h-4 w-4" />
-            {coverUrl ? 'Trocar foto' : 'Escolher da galeria'}
+          </Button>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => inputRef.current?.click()}>
+            <ImagePlus className="h-4 w-4" />
+            {coverUrl ? 'Trocar da galeria' : 'Escolher da galeria'}
           </Button>
         </div>
       </div>
@@ -71,14 +82,21 @@ export function CoverPicker({ workoutName, coverUrl, onUpload, onSelectPreset }:
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         className="sr-only"
-        aria-label="Escolher foto de capa"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          e.target.value = ''
-          if (file) run(() => onUpload(file))
-        }}
+        tabIndex={-1}
+        aria-label="Escolher foto de capa da galeria"
+        onChange={handleFile}
+      />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        tabIndex={-1}
+        aria-label="Tirar foto de capa"
+        onChange={handleFile}
       />
 
       <button
