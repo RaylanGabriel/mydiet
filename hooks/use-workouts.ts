@@ -2,6 +2,7 @@
 
 import useSWR, { mutate as globalMutate } from 'swr'
 import { createClient } from '@/lib/supabase/client'
+import { getUserId } from '@/lib/supabase/get-user-id'
 import type { Exercise, Workout, WorkoutExercise, WorkoutSession } from '@/lib/workout-types'
 import type { PlanWorkout } from '@/lib/fitness-plan'
 
@@ -37,12 +38,9 @@ export function useMonthSessions(year: number, month: number) {
 const WORKOUT_SELECT = '*, workout_exercises(*, exercise:exercises(*))'
 
 async function requireUserId() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Usuário não autenticado')
-  return user.id
+  const userId = await getUserId()
+  if (!userId) throw new Error('Usuário não autenticado')
+  return userId
 }
 
 function sortExercises(workout: Workout): Workout {

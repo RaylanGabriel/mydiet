@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getUserId } from '@/lib/supabase/get-user-id'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -109,9 +110,9 @@ export default function AdicionarPage() {
 
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
+      const userId = await getUserId()
+
+      if (!userId) {
         router.push('/auth/login')
         return
       }
@@ -123,7 +124,7 @@ export default function AdicionarPage() {
       const { data: meal, error: mealError } = await supabase
         .from('meals')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           nome: mealType?.label || '',
           horario: horario,
           data: today,
@@ -144,7 +145,7 @@ export default function AdicionarPage() {
           .insert(
             validItems.map((item, index) => ({
               meal_id: meal.id,
-              user_id: user.id,
+              user_id: userId,
               nome: item.nome,
               quantidade: item.quantidade,
               calorias: item.calorias,

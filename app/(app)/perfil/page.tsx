@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getUserId } from '@/lib/supabase/get-user-id'
 import { useProfile } from '@/hooks/use-profile'
 import { compressImage } from '@/lib/image-utils'
 import { Button } from '@/components/ui/button'
@@ -61,11 +62,10 @@ export default function PerfilPage() {
     try {
       const compressed = await compressImage(file, 512, 0.82)
       const supabase = createClient()
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError) throw userError
-      if (!user) throw new Error('Faça login novamente para atualizar sua foto.')
+      const userId = await getUserId()
+      if (!userId) throw new Error('Faça login novamente para atualizar sua foto.')
 
-      const path = `${user.id}/avatar.jpg`
+      const path = `${userId}/avatar.jpg`
       const { error: uploadError } = await supabase.storage
         .from('profile-avatars')
         .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })

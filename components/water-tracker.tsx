@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getUserId } from '@/lib/supabase/get-user-id'
 import { cn } from '@/lib/utils'
 import { Minus, Plus, Droplets } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,39 +23,47 @@ export function WaterTracker({ date, metaAgua = 2500 }: WaterTrackerProps) {
   const percentage = Math.min((waterMl / metaAgua) * 100, 100)
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchWater = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const userId = await getUserId()
+        if (!userId || cancelled) return
 
-      const { data } = await supabase
-        .from('water_intake')
-        .select('quantidade_ml')
-        .eq('user_id', user.id)
-        .eq('data', date)
-        .single()
+        const { data } = await createClient()
+          .from('water_intake')
+          .select('quantidade_ml')
+          .eq('user_id', userId)
+          .eq('data', date)
+          .maybeSingle()
 
-      if (data) {
-        setWaterMl(data.quantidade_ml)
+        if (data && !cancelled) {
+          setWaterMl(data.quantidade_ml)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar consumo de água:', error)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchWater()
+    return () => {
+      cancelled = true
+    }
   }, [date])
 
   const updateWater = async (newMl: number) => {
     const clampedMl = Math.max(0, Math.min(newMl, maxGlasses * GLASS_ML))
     setWaterMl(clampedMl)
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const userId = await getUserId()
+    if (!userId) return
 
-    await supabase
+    await createClient()
       .from('water_intake')
       .upsert({
-        user_id: user.id,
+        user_id: userId,
         data: date,
         quantidade_ml: clampedMl,
         updated_at: new Date().toISOString(),

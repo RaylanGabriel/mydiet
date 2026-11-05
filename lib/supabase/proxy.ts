@@ -29,9 +29,10 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getClaims valida a assinatura do JWT localmente (chave ES256 via JWKS em cache),
+  // sem ida ao servidor de Auth a cada requisição. Também renova a sessão expirada.
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims
 
   // Redirect to login if accessing protected routes without auth
   if (

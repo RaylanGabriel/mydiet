@@ -2,18 +2,17 @@
 
 import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
+import { getUserId } from '@/lib/supabase/get-user-id'
 import type { Profile } from '@/lib/types'
 
 async function fetchProfile(): Promise<Profile | null> {
-  const supabase = createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const userId = await getUserId()
+  if (!userId) return null
 
-  const { data, error } = await supabase
+  const { data, error } = await createClient()
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (error) throw error
@@ -26,15 +25,13 @@ export function useProfile() {
   })
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    const supabase = createClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const userId = await getUserId()
+    if (!userId) return
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await createClient()
       .from('profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+      .eq('id', userId)
     if (updateError) throw updateError
 
     await mutate()
