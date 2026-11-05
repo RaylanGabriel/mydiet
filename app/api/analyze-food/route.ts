@@ -1,4 +1,3 @@
-import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 
@@ -51,29 +50,86 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Imagem muito grande.' }, { status: 413 })
   }
 
-  try {
-    const { output } = await generateText({
-      model: 'google/gemini-3-flash',
-      output: Output.object({ schema: foodAnalysisSchema }),
-      system:
-        'Você é um nutricionista que estima porções e macronutrientes a partir de fotos de refeições. ' +
-        'Identifique cada alimento visível separadamente, estime a porção em gramas usando referências visuais ' +
-        '(tamanho do prato, talheres) e calcule os valores com base em tabelas nutricionais confiáveis como TACO e USDA. ' +
-        'Considere preparo (frito, cozido, grelhado) e molhos visíveis. Arredonde calorias para inteiros e macros para 1 casa decimal.',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Identifique os alimentos desta foto e estime os macronutrientes de cada um.' },
-            { type: 'file', mediaType, data: bytes },
-          ],
-        },
-      ],
-    })
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    console.error('Food analysis is unavailable: GEMINI_API_KEY is not configured.')
+    return Response.json({ error: 'A análise por IA não está configurada no servidor.' }, { status: 503 })
+  }
 
-    return Response.json(output)
+  try {
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{
+              text:
+                'Você é um nutricionista que estima porções e macronutrientes a partir de fotos de refeições. ' +
+                'Identifique cada alimento visível separadamente, estime a porção em gramas usando referências visuais ' +
+                '(tamanho do prato, talheres) e calcule os valores com base em tabelas nutricionais confiáveis como TACO e USDA. ' +
+                'Considere preparo (frito, cozido, grelhado) e molhos visíveis. Arredonde calorias para inteiros e macros para 1 casa decimal.',
+            }],
+          },
+          contents: [{
+            role: 'user',
+            parts: [
+              { text: 'Identifique os alimentos desta foto e estime os macronutrientes de cada um. Retorne somente um JSON com as propriedades "itens" e "observacao". Cada item deve ter "nome", "quantidade", "calorias", "proteina", "carboidratos" e "gordura".' },
+              { inlineData: { mimeType: mediaType, data: base64 } },
+            ],
+          }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: AbortSignal.timeout(55_000),
+      },
+    )
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null)
+      const providerMessage = errorBody?.error?.message
+      console.error('Gemini food analysis request failed:', {
+        status: response.status,
+        message: typeof providerMessage === 'string' ? providerMessage : 'No provider error message',
+      })
+
+      const errorMessage =
+        response.status === 400
+          ? 'O Gemini recusou a imagem. Tente escolher outra foto em JPG, PNG ou WEBP.'
+          : response.status === 401 || response.status === 403
+            ? 'A chave Gemini não tem autorização para analisar imagens. Confira a API key e o acesso ao Gemini API.'
+            : response.status === 429
+              ? 'O limite gratuito de solicitações do Gemini foi atingido. Aguarde e tente novamente mais tarde.'
+              : response.status === 503
+                ? 'O Gemini está temporariamente indisponível. Tente novamente mais tarde.'
+                : 'O Gemini não conseguiu analisar a imagem. Tente novamente mais tarde.'
+
+      return Response.json({ error: errorMessage }, { status: 502 })
+    }
+
+    const result = await response.json()
+    const generatedText = result.candidates?.[0]?.content?.parts
+      ?.map((part: { text?: string }) => part.text ?? '')
+      .join('')
+    if (!generatedText) {
+      console.error('Gemini food analysis returned no text.')
+      return Response.json({ error: 'O Gemini não retornou uma análise. Tente novamente com outra foto.' }, { status: 502 })
+    }
+
+    const parsedOutput = foodAnalysisSchema.safeParse(JSON.parse(generatedText))
+    if (!parsedOutput.success) {
+      console.error('Gemini food analysis returned an invalid response:', parsedOutput.error)
+      return Response.json({ error: 'Não foi possível interpretar a análise da foto. Tente novamente.' }, { status: 502 })
+    }
+
+    return Response.json(parsedOutput.data)
   } catch (error) {
     console.error('Food analysis failed:', error)
-    return Response.json({ error: 'Não foi possível analisar a foto agora. Tente novamente.' }, { status: 502 })
+    return Response.json({ error: 'Não foi possível conectar ao Gemini agora. Tente novamente mais tarde.' }, { status: 502 })
   }
 }
