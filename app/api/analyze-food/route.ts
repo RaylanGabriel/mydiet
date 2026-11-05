@@ -71,7 +71,7 @@ export async function POST(req: Request) {
               text:
                 'Você é um nutricionista que estima porções e macronutrientes a partir de fotos de refeições. ' +
                 'Identifique cada alimento visível separadamente, estime a porção em gramas usando referências visuais ' +
-                '(tamanho do prato, talheres) e calcule os valores com base em tabelas nutricionais confiáveis como TACO e USDA. ' +
+                '(tamanho do prato, talheres) e calcule os valores priorizando a TACO (Tabela Brasileira de Composição de Alimentos) e a TBCA (Tabela Brasileira de Composição de Alimentos da USP). Use USDA somente quando o alimento não existir nessas tabelas. ' +
                 'Considere preparo (frito, cozido, grelhado) e molhos visíveis. Arredonde calorias para inteiros e macros para 1 casa decimal.',
             }],
           },

@@ -172,7 +172,7 @@ export function FoodAutocomplete({
                     <div>
                       <p className="font-medium text-sm">{food.nome}</p>
                       <p className="text-xs text-muted-foreground">
-                        por 100g{food.source === 'openfoodfacts' ? ' · fonte externa' : ''}
+                        por 100g{food.source === 'openfoodfacts' ? ' · Open Food Facts Brasil' : food.source === 'taco-tbca' ? ' · TACO/TBCA' : ''}
                       </p>
                     </div>
                     <div className="text-right">
