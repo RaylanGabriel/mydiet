@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Fuse from 'fuse.js'
+import useSWR from 'swr'
 import { SearchResultsSkeleton } from '@/components/search-results-skeleton'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CommonFood } from '@/lib/types'
-import { searchFatSecret } from '@/app/(app)/adicionar/actions'
 
 interface FoodAutocompleteProps {
   value: string
@@ -29,12 +29,37 @@ export function FoodAutocomplete({
   placeholder = "Digite o nome do alimento...",
   className 
 }: FoodAutocompleteProps) {
-  const [suggestions, setSuggestions] = useState<CommonFood[]>([])
   const [isOpen, setIsOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedFood, setSelectedFood] = useState<CommonFood | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const debouncedValue = useDebouncedValue(value, 400)
+  const { data: foods = [], isLoading } = useSWR<CommonFood[]>('common-foods', async () => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('common_foods')
+      .select('*')
+      .order('nome')
+
+    if (error) throw error
+    return (data ?? []).map((food) => ({ ...food, source: 'supabase' as const }))
+  }, { revalidateOnFocus: false })
+
+  const fuse = useMemo(
+    () => new Fuse(foods, {
+      keys: ['nome'],
+      threshold: 0.35,
+      ignoreLocation: true,
+      ignoreDiacritics: true,
+      isCaseSensitive: false,
+      minMatchCharLength: 2,
+    }),
+    [foods],
+  )
+
+  const suggestions = useMemo(() => {
+    const searchTerm = value.trim()
+    if (searchTerm.length < 2) return []
+    return fuse.search(searchTerm, { limit: 8 }).map(({ item }) => item)
+  }, [fuse, value])
 
   // Parse quantity to get grams
   const parseQuantityToGrams = (qty: string): number => {
@@ -72,41 +97,6 @@ export function FoodAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  useEffect(() => {
-    const searchFoods = async () => {
-      const searchTerm = debouncedValue.trim()
-      if (searchTerm.length < 2) {
-        setSuggestions([])
-        setIsOpen(false)
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('common_foods')
-        .select('*')
-        .ilike('nome', `%${searchTerm}%`)
-        .limit(8)
-
-      let foods: CommonFood[] = (data ?? []).map((food) => ({ ...food, source: 'supabase' }))
-      if (!error && foods.length < 3) {
-        const external = await searchFatSecret(searchTerm)
-        const existingNames = new Set(foods.map((food) => food.nome.toLowerCase()))
-        foods = [...foods, ...external.foods.filter((food) => !existingNames.has(food.nome.toLowerCase()))]
-      }
-
-      if (searchTerm === debouncedValue.trim()) {
-        setSuggestions(foods)
-        setIsOpen(foods.length > 0)
-      }
-      setIsLoading(false)
-    }
-
-    void searchFoods()
-  }, [debouncedValue])
-
   const handleSelect = async (food: CommonFood) => {
     if (food.source === 'openfoodfacts' || food.source === 'fatsecret') {
       const supabase = createClient()
@@ -139,12 +129,14 @@ export function FoodAutocomplete({
         <Input
           value={value}
           onChange={(e) => {
-            onChange(e.target.value)
-            if (e.target.value !== selectedFood?.nome) {
+            const nextValue = e.target.value
+            onChange(nextValue)
+            setIsOpen(nextValue.trim().length >= 2)
+            if (nextValue !== selectedFood?.nome) {
               setSelectedFood(null)
             }
           }}
-          onFocus={() => suggestions.length > 0 && setIsOpen(true)}
+          onFocus={() => value.trim().length >= 2 && setIsOpen(true)}
           placeholder={placeholder}
           className="pl-10"
         />
