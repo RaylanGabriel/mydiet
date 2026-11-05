@@ -19,6 +19,7 @@ export const MEAL_TYPE_ORDER: MealType[] = [
 export interface Profile {
   id: string
   nome: string | null
+  foto_perfil_url: string | null
   meta_calorias_diarias: number
   meta_agua_ml: number
   sexo: 'masculino' | 'feminino' | null

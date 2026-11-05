@@ -1,26 +1,31 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/hooks/use-profile'
+import { compressImage } from '@/lib/image-utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
-import { LogOut, Save, User, Droplets, Flame, Target, ChevronRight } from 'lucide-react'
+import { ImagePlus, LogOut, Save, User, Droplets, Flame, Target, ChevronRight } from 'lucide-react'
 import { InstallAppCard } from '@/components/install-app-card'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 export default function PerfilPage() {
   const router = useRouter()
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const { profile, isLoading, updateProfile } = useProfile()
   const [nome, setNome] = useState('')
   const [metaCalorias, setMetaCalorias] = useState(2000)
   const [metaAgua, setMetaAgua] = useState(2500)
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
   const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
@@ -46,6 +51,40 @@ export default function PerfilPage() {
     }
   }
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    setUploadingPhoto(true)
+    setPhotoError(null)
+    try {
+      const compressed = await compressImage(file, 512, 0.82)
+      const supabase = createClient()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) throw new Error('Faça login novamente para atualizar sua foto.')
+
+      const path = `${user.id}/avatar.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('profile-avatars')
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
+      if (uploadError) {
+        if (uploadError.message.toLowerCase().includes('bucket not found')) {
+          throw new Error('O armazenamento de fotos ainda não foi configurado. Execute o script scripts/004_profile_avatar_storage.sql no SQL Editor do Supabase.')
+        }
+        throw uploadError
+      }
+
+      const { data } = supabase.storage.from('profile-avatars').getPublicUrl(path)
+      await updateProfile({ foto_perfil_url: `${data.publicUrl}?v=${Date.now()}` })
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : 'Não foi possível atualizar sua foto.')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   const handleSignOut = async () => {
     setSigningOut(true)
     const supabase = createClient()
@@ -66,9 +105,33 @@ export default function PerfilPage() {
       {/* Header */}
       <header className="bg-primary px-4 py-8 rounded-b-3xl">
         <div className="max-w-lg mx-auto flex flex-col items-center">
-          <div className="w-20 h-20 rounded-full bg-primary-foreground/20 flex items-center justify-center mb-4">
-            <User className="w-10 h-10 text-primary-foreground" />
-          </div>
+          <Avatar className="mb-3 h-20 w-20 border-2 border-primary-foreground/40">
+            <AvatarImage src={profile?.foto_perfil_url ?? undefined} alt="Foto de perfil" />
+            <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
+              <User className="h-10 w-10" />
+            </AvatarFallback>
+          </Avatar>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Escolher foto de perfil da galeria"
+            onChange={handlePhotoChange}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="mb-3"
+            disabled={uploadingPhoto}
+            onClick={() => photoInputRef.current?.click()}
+          >
+            {uploadingPhoto ? <Spinner className="mr-2" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+            {uploadingPhoto ? 'Enviando foto...' : profile?.foto_perfil_url ? 'Trocar foto' : 'Adicionar foto'}
+          </Button>
+          {photoError && <p className="mb-3 text-center text-sm text-primary-foreground" role="alert">{photoError}</p>}
           <h1 className="text-xl font-bold text-primary-foreground">
             {profile?.nome || 'Usuario'}
           </h1>

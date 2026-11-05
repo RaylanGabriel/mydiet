@@ -24,6 +24,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Supabase
+
+When updating an existing database, run the SQL scripts in `scripts/` in order in the Supabase SQL Editor. The profile photo feature requires `scripts/004_profile_avatar_storage.sql`.
+
 ## Learn More
 
 To learn more, take a look at the following resources:

@@ -192,7 +192,12 @@ export function useWorkout(id: string) {
     const { error: uploadError } = await supabase.storage
       .from(COVER_BUCKET)
       .upload(path, file, { contentType: file.type, upsert: true })
-    if (uploadError) throw uploadError
+    if (uploadError) {
+      if (uploadError.message.toLowerCase().includes('row-level security')) {
+        throw new Error('O Supabase bloqueou o envio da capa. Execute o script scripts/002_workout_cover_storage.sql no SQL Editor do Supabase para configurar as permissões do bucket.')
+      }
+      throw uploadError
+    }
     const { data: publicUrl } = supabase.storage.from(COVER_BUCKET).getPublicUrl(path)
     await updateWorkout({ capa_url: publicUrl.publicUrl })
   }
