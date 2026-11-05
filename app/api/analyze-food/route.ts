@@ -57,38 +57,50 @@ export async function POST(req: Request) {
   }
 
   try {
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{
-              text:
-                'Você é um nutricionista que estima porções e macronutrientes a partir de fotos de refeições. ' +
-                'Identifique cada alimento visível separadamente, estime a porção em gramas usando referências visuais ' +
-                '(tamanho do prato, talheres) e calcule os valores priorizando a TACO (Tabela Brasileira de Composição de Alimentos) e a TBCA (Tabela Brasileira de Composição de Alimentos da USP). Use USDA somente quando o alimento não existir nessas tabelas. ' +
-                'Considere preparo (frito, cozido, grelhado) e molhos visíveis. Arredonde calorias para inteiros e macros para 1 casa decimal.',
-            }],
-          },
-          contents: [{
-            role: 'user',
-            parts: [
-              { text: 'Identifique os alimentos desta foto e estime os macronutrientes de cada um. Retorne somente um JSON com as propriedades "itens" e "observacao". Cada item deve ter "nome", "quantidade", "calorias", "proteina", "carboidratos" e "gordura".' },
-              { inlineData: { mimeType: mediaType, data: base64 } },
-            ],
-          }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-          },
-        }),
-        signal: AbortSignal.timeout(55_000),
+    const requestBody = JSON.stringify({
+      systemInstruction: {
+        parts: [{
+          text:
+            'Você é um nutricionista que estima porções e macronutrientes a partir de fotos de refeições. ' +
+            'Identifique cada alimento visível separadamente, estime a porção em gramas usando referências visuais ' +
+            '(tamanho do prato, talheres) e calcule os valores priorizando a TACO (Tabela Brasileira de Composição de Alimentos) e a TBCA (Tabela Brasileira de Composição de Alimentos da USP). Use USDA somente quando o alimento não existir nessas tabelas. ' +
+            'Considere preparo (frito, cozido, grelhado) e molhos visíveis. Arredonde calorias para inteiros e macros para 1 casa decimal.',
+        }],
       },
-    )
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: 'Identifique os alimentos desta foto e estime os macronutrientes de cada um. Retorne somente um JSON com as propriedades "itens" e "observacao". Cada item deve ter "nome", "quantidade", "calorias", "proteina", "carboidratos" e "gordura".' },
+          { inlineData: { mimeType: mediaType, data: base64 } },
+        ],
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+      },
+    })
+    let response: Response | undefined
+
+    for (const model of ['gemini-flash-latest', 'gemini-flash-lite-latest']) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: requestBody,
+          signal: AbortSignal.timeout(25_000),
+        },
+      )
+
+      if (response.ok || (response.status !== 503 && response.status !== 429)) break
+      console.warn(`Gemini model ${model} returned HTTP ${response.status}; trying fallback model.`)
+    }
+
+    if (!response) {
+      throw new Error('No Gemini models were attempted.')
+    }
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null)
