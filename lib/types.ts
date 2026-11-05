@@ -43,6 +43,8 @@ export interface CommonFood {
   carboidratos: number
   gordura: number
   categoria: string
+  source?: 'supabase' | 'openfoodfacts'
+  serving_size?: string | null
 }
 
 export interface Meal {
