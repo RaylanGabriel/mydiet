@@ -10,6 +10,7 @@ import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import { FoodAutocomplete } from '@/components/food-autocomplete'
 import { FoodPhotoScanner, type DetectedFood } from '@/components/food-photo-scanner'
+import { DrinkPicker, type DrinkItem } from '@/components/drink-picker'
 import { ArrowLeft, BookOpen, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -52,6 +53,21 @@ export default function AdicionarPage() {
     setItems([
       ...items,
       { id: Date.now().toString(), nome: '', quantidade: '100g', calorias: 0, proteina: 0, carboidratos: 0, gordura: 0 }
+    ])
+  }
+
+  const addDrink = (drink: DrinkItem) => {
+    setItems((prev) => [
+      ...prev.filter((item) => item.nome.trim() !== ''),
+      {
+        id: drink.id,
+        nome: drink.nome,
+        quantidade: drink.quantidade,
+        calorias: drink.calorias,
+        proteina: drink.proteina,
+        carboidratos: drink.carboidratos,
+        gordura: drink.gordura,
+      },
     ])
   }
 
@@ -239,7 +255,7 @@ export default function AdicionarPage() {
                   
                   <FieldGroup>
                     <Field>
-                      <FieldLabel>Nome do alimento</FieldLabel>
+                      <FieldLabel>Nome do alimento ou item</FieldLabel>
                       <FoodAutocomplete
                         value={item.nome}
                         quantidade={item.quantidade}
@@ -308,6 +324,8 @@ export default function AdicionarPage() {
               ))}
             </CardContent>
           </Card>
+
+          <DrinkPicker onAdd={addDrink} />
 
           {/* Submit */}
           <Button type="submit" className="w-full" disabled={loading}>
