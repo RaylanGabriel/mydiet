@@ -19,7 +19,7 @@ async function fetchMonthSessions(year: number, month: number): Promise<WorkoutS
   const end = new Date(year, month + 1, 1)
   const { data, error } = await supabase
     .from('workout_sessions')
-    .select('*, workout:workouts(id, nome, capa_url)')
+    .select('*, workout:workouts(id, nome, capa_url), session_sets(*)')
     .gte('iniciado_em', start.toISOString())
     .lt('iniciado_em', end.toISOString())
     .order('iniciado_em')
@@ -222,7 +222,7 @@ export function useWorkout(id: string) {
 
   const updateExercise = async (
     workoutExerciseId: string,
-    updates: Partial<Pick<WorkoutExercise, 'series' | 'repeticoes' | 'carga_kg' | 'descanso_segundos' | 'observacoes'>>,
+    updates: Partial<Pick<WorkoutExercise, 'series' | 'repeticoes' | 'carga_kg' | 'cargas_por_serie' | 'descanso_segundos' | 'observacoes'>>,
   ) => {
     const supabase = createClient()
     const { error: updateError } = await supabase

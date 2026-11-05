@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { CalendarCheck, ChevronLeft, ChevronRight, Clock, Dumbbell } from 'lucide-react'
+import { CalendarCheck, ChevronDown, ChevronLeft, ChevronRight, Clock, Dumbbell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { useMonthSessions } from '@/hooks/use-workouts'
@@ -149,27 +149,67 @@ export function WorkoutCalendar() {
               <p className="text-sm text-muted-foreground">Nenhum treino registrado neste dia.</p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {selectedSessions.map((session) => (
-                  <li key={session.id} className="flex items-center gap-3 rounded-xl bg-muted p-2">
-                    {session.workout?.capa_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={session.workout.capa_url} alt="" className="h-11 w-11 rounded-lg object-cover" />
-                    ) : (
-                      <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                        <Dumbbell className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">{session.workout_nome}</p>
-                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" aria-hidden="true" />
-                        {TIME_FORMATTER.format(new Date(session.iniciado_em))} · {formatDuration(session.duracao_segundos)}
-                        {' · '}
-                        {session.series_concluidas} séries
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                {selectedSessions.map((session) => {
+                  const setsByExercise = new Map<string, NonNullable<WorkoutSession['session_sets']>>()
+                  for (const set of session.session_sets ?? []) {
+                    const exerciseSets = setsByExercise.get(set.exercise_id) ?? []
+                    exerciseSets.push(set)
+                    setsByExercise.set(set.exercise_id, exerciseSets)
+                  }
+
+                  return (
+                    <li key={session.id} className="rounded-xl bg-muted">
+                      <details className="group">
+                        <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl p-2 [&::-webkit-details-marker]:hidden">
+                          {session.workout?.capa_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={session.workout.capa_url} alt="" className="h-11 w-11 rounded-lg object-cover" />
+                          ) : (
+                            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                              <Dumbbell className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-foreground">{session.workout_nome}</span>
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" aria-hidden="true" />
+                              {TIME_FORMATTER.format(new Date(session.iniciado_em))} · {formatDuration(session.duracao_segundos)}
+                              {' · '}
+                              {session.series_concluidas} séries
+                            </span>
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+                        </summary>
+
+                        <div className="flex flex-col gap-3 px-3 pb-3">
+                          {setsByExercise.size === 0 ? (
+                            <p className="text-sm text-muted-foreground">Nenhum detalhe de série salvo neste treino.</p>
+                          ) : (
+                            Array.from(setsByExercise.entries()).map(([exerciseId, exerciseSets]) => (
+                              <div key={exerciseId} className="rounded-lg border border-border bg-card p-3">
+                                <h3 className="mb-2 text-sm font-medium text-card-foreground">
+                                  {exerciseSets[0].exercise_nome}
+                                </h3>
+                                <ul className="flex flex-col gap-1">
+                                  {exerciseSets
+                                    .sort((a, b) => a.serie_numero - b.serie_numero)
+                                    .map((set) => (
+                                      <li key={set.id} className="flex justify-between gap-3 text-sm text-muted-foreground">
+                                        <span>Série {set.serie_numero}</span>
+                                        <span className="text-right">
+                                          {set.repeticoes} reps · {set.carga_kg === null ? 'Sem carga' : `${Number(set.carga_kg)} kg`}
+                                        </span>
+                                      </li>
+                                    ))}
+                                </ul>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </details>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>

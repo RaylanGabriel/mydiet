@@ -7,7 +7,7 @@ import { WaterTracker } from '@/components/water-tracker'
 import { useMeals } from '@/hooks/use-meals'
 import { useProfile } from '@/hooks/use-profile'
 import { Spinner } from '@/components/ui/spinner'
-import { Empty } from '@/components/ui/empty'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Calendar } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -49,11 +49,17 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold mb-4">Refeicoes de Hoje</h2>
             
             {meals.length === 0 ? (
-              <Empty
-                icon={<Calendar className="w-10 h-10" />}
-                title="Nenhuma refeicao cadastrada"
-                description="Adicione suas refeicoes do dia para comecar a acompanhar sua dieta."
-              />
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Calendar className="w-10 h-10" />
+                  </EmptyMedia>
+                  <EmptyTitle>Nenhuma refeicao cadastrada</EmptyTitle>
+                  <EmptyDescription>
+                    Adicione suas refeicoes do dia para comecar a acompanhar sua dieta.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               <MealTimeline
                 meals={meals}

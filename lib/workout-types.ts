@@ -15,10 +15,19 @@ export interface WorkoutExercise {
   series: number
   repeticoes: string
   carga_kg: number | null
+  cargas_por_serie: (number | null)[] | null
   descanso_segundos: number
   observacoes: string | null
   ordem: number
   exercise: Exercise
+}
+
+export function getWorkoutExerciseLoads(item: WorkoutExercise) {
+  return Array.from({ length: item.series }, (_, index) =>
+    item.cargas_por_serie && index < item.cargas_por_serie.length
+      ? item.cargas_por_serie[index]
+      : item.carga_kg,
+  )
 }
 
 export interface Workout {
@@ -53,7 +62,18 @@ export interface WorkoutSession {
   duracao_segundos: number
   volume_total_kg: number
   series_concluidas: number
+  session_sets?: WorkoutSessionSet[]
   workout?: { id: string; nome: string; capa_url: string | null } | null
+}
+
+export interface WorkoutSessionSet {
+  id: string
+  session_id: string
+  exercise_id: string
+  exercise_nome: string
+  serie_numero: number
+  repeticoes: number
+  carga_kg: number | null
 }
 
 export const GRUPOS_MUSCULARES = [

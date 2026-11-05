@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { SearchResultsSkeleton } from '@/components/search-results-skeleton'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { Search } from 'lucide-react'
@@ -31,6 +33,7 @@ export function FoodAutocomplete({
   const [isLoading, setIsLoading] = useState(false)
   const [selectedFood, setSelectedFood] = useState<CommonFood | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const debouncedValue = useDebouncedValue(value, 400)
 
   // Parse quantity to get grams
   const parseQuantityToGrams = (qty: string): number => {
@@ -70,31 +73,31 @@ export function FoodAutocomplete({
 
   useEffect(() => {
     const searchFoods = async () => {
-      if (value.length < 2) {
+      const searchTerm = debouncedValue.trim()
+      if (searchTerm.length < 2) {
         setSuggestions([])
         setIsOpen(false)
+        setIsLoading(false)
         return
       }
 
       setIsLoading(true)
       const supabase = createClient()
-      
       const { data, error } = await supabase
         .from('common_foods')
         .select('*')
-        .ilike('nome', `%${value}%`)
+        .ilike('nome', `%${searchTerm}%`)
         .limit(8)
 
-      if (!error && data) {
+      if (!error && data && searchTerm === debouncedValue.trim()) {
         setSuggestions(data)
         setIsOpen(data.length > 0)
       }
       setIsLoading(false)
     }
 
-    const debounce = setTimeout(searchFoods, 300)
-    return () => clearTimeout(debounce)
-  }, [value])
+    void searchFoods()
+  }, [debouncedValue])
 
   const handleSelect = (food: CommonFood) => {
     setSelectedFood(food)
@@ -129,9 +132,7 @@ export function FoodAutocomplete({
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
           {isLoading ? (
-            <div className="p-3 text-sm text-muted-foreground text-center">
-              Buscando...
-            </div>
+            <SearchResultsSkeleton rows={3} />
           ) : (
             <ul className="max-h-64 overflow-auto">
               {suggestions.map((food) => (

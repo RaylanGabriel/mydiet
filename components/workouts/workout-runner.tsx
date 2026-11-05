@@ -9,7 +9,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ExerciseVideo } from '@/components/workouts/exercise-video'
 import { RestTimer } from '@/components/workouts/rest-timer'
 import { useWorkoutSessions, type CompletedSet } from '@/hooks/use-workouts'
-import { formatDuration, type Workout, type WorkoutExercise } from '@/lib/workout-types'
+import { formatDuration, getWorkoutExerciseLoads, type Workout, type WorkoutExercise } from '@/lib/workout-types'
 import { cn } from '@/lib/utils'
 
 interface SetState {
@@ -31,9 +31,10 @@ function buildInitialState(workout: Workout): RunState {
   const sets: Record<string, SetState[]> = {}
   for (const we of workout.workout_exercises) {
     const reps = String(parseInt(we.repeticoes) || '')
-    sets[we.id] = Array.from({ length: we.series }, () => ({
+    const cargasPorSerie = getWorkoutExerciseLoads(we)
+    sets[we.id] = Array.from({ length: we.series }, (_, index) => ({
       reps,
-      carga: we.carga_kg !== null ? String(Number(we.carga_kg)) : '',
+      carga: cargasPorSerie[index] !== null ? String(Number(cargasPorSerie[index])) : '',
       done: false,
     }))
   }

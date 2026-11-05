@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ExerciseVideo } from '@/components/workouts/exercise-video'
-import type { WorkoutExercise } from '@/lib/workout-types'
+import { getWorkoutExerciseLoads, type WorkoutExercise } from '@/lib/workout-types'
 
-type Updates = Partial<Pick<WorkoutExercise, 'series' | 'repeticoes' | 'carga_kg' | 'descanso_segundos' | 'observacoes'>>
+type Updates = Partial<Pick<WorkoutExercise, 'series' | 'repeticoes' | 'cargas_por_serie' | 'descanso_segundos' | 'observacoes'>>
 
 interface Props {
   item: WorkoutExercise
@@ -25,6 +25,7 @@ const DESCANSO_OPCOES = [0, 30, 45, 60, 90, 120, 180]
 export function WorkoutExerciseEditor({ item, index, isFirst, isLast, onUpdate, onMove, onRemove }: Props) {
   const [showVideo, setShowVideo] = useState(false)
   const fieldId = (name: string) => `${item.id}-${name}`
+  const cargasPorSerie = getWorkoutExerciseLoads(item)
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4">
@@ -52,7 +53,7 @@ export function WorkoutExerciseEditor({ item, index, isFirst, isLast, onUpdate, 
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor={fieldId('series')} className="text-xs text-muted-foreground">Séries</Label>
           <Input
@@ -65,7 +66,14 @@ export function WorkoutExerciseEditor({ item, index, isFirst, isLast, onUpdate, 
             className="h-9 px-2 text-center"
             onBlur={(e) => {
               const series = Math.min(20, Math.max(1, parseInt(e.target.value) || 1))
-              if (series !== item.series) onUpdate({ series })
+              if (series !== item.series) {
+                const cargas_por_serie = Array.from({ length: series }, (_, i) =>
+                  i < cargasPorSerie.length
+                    ? cargasPorSerie[i]
+                    : cargasPorSerie[cargasPorSerie.length - 1] ?? null,
+                )
+                onUpdate({ series, cargas_por_serie })
+              }
             }}
           />
         </div>
@@ -83,23 +91,6 @@ export function WorkoutExerciseEditor({ item, index, isFirst, isLast, onUpdate, 
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={fieldId('carga')} className="text-xs text-muted-foreground">Carga kg</Label>
-          <Input
-            id={fieldId('carga')}
-            type="number"
-            inputMode="decimal"
-            step="0.5"
-            min={0}
-            defaultValue={item.carga_kg ?? ''}
-            placeholder="-"
-            className="h-9 px-2 text-center"
-            onBlur={(e) => {
-              const carga = e.target.value === '' ? null : Math.max(0, parseFloat(e.target.value))
-              if (carga !== (item.carga_kg === null ? null : Number(item.carga_kg))) onUpdate({ carga_kg: carga })
-            }}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
           <Label htmlFor={fieldId('descanso')} className="text-xs text-muted-foreground">Descanso</Label>
           <select
             id={fieldId('descanso')}
@@ -113,6 +104,37 @@ export function WorkoutExerciseEditor({ item, index, isFirst, isLast, onUpdate, 
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label className="text-xs text-muted-foreground">Carga por série (kg)</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {cargasPorSerie.map((carga, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              <Label htmlFor={fieldId(`carga-${i}`)} className="text-xs text-muted-foreground">
+                Série {i + 1}
+              </Label>
+              <Input
+                id={fieldId(`carga-${i}`)}
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min={0}
+                defaultValue={carga ?? ''}
+                placeholder="-"
+                className="h-9 px-2 text-center"
+                onBlur={(e) => {
+                  const value = e.target.value === '' ? null : Number(e.target.value)
+                  if (value !== null && (!Number.isFinite(value) || value < 0)) return
+                  if (value === carga) return
+                  const updatedLoads = [...cargasPorSerie]
+                  updatedLoads[i] = value
+                  onUpdate({ cargas_por_serie: updatedLoads })
+                }}
+              />
+            </div>
+          ))}
         </div>
       </div>
 

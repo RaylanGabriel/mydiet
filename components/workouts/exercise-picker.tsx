@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Check, Plus, Search } from 'lucide-react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { SearchResultsSkeleton } from '@/components/search-results-skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,15 +34,18 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
   const [group, setGroup] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const debouncedQuery = useDebouncedValue(query, 350)
 
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    return exercises.filter(
-      (ex) =>
-        (!group || ex.grupo_muscular === group) &&
-        (!normalized || ex.nome.toLowerCase().includes(normalized)),
-    )
-  }, [exercises, query, group])
+    const normalized = debouncedQuery.trim().toLowerCase()
+    return exercises
+      .filter(
+        (ex) =>
+          (!group || ex.grupo_muscular === group) &&
+          (!normalized || ex.nome.toLowerCase().includes(normalized)),
+      )
+      .slice(0, 20)
+  }, [exercises, debouncedQuery, group])
 
   const handleSelect = async (exercise: Exercise) => {
     setAddingId(exercise.id)
@@ -91,7 +96,7 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
                     onClick={() => setGroup(g)}
                     aria-pressed={group === g}
                     className={cn(
-                      'shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      'shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200 ease-in-out',
                       group === g
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border bg-card text-muted-foreground hover:text-foreground',
@@ -105,43 +110,26 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
 
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
-                <div className="flex justify-center py-10">
-                  <Spinner className="h-6 w-6" />
-                </div>
+                <SearchResultsSkeleton rows={6} />
               ) : (
                 <ul className="divide-y divide-border">
-                  {filtered.map((exercise) => {
-                    const alreadyAdded = selectedIds.includes(exercise.id)
-                    return (
-                      <li key={exercise.id}>
-                        <button
-                          type="button"
-                          onClick={() => handleSelect(exercise)}
-                          disabled={addingId !== null}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted disabled:opacity-60"
-                        >
-                          <span className="flex-1">
-                            <span className="block font-medium text-foreground">{exercise.nome}</span>
-                            <span className="block text-xs text-muted-foreground">
-                              {exercise.grupo_muscular}
-                              {exercise.equipamento ? ` · ${exercise.equipamento}` : ''}
-                              {exercise.user_id ? ' · Personalizado' : ''}
-                            </span>
-                          </span>
-                          {addingId === exercise.id ? (
-                            <Spinner className="h-4 w-4" />
-                          ) : alreadyAdded ? (
-                            <Check className="h-5 w-5 text-primary" aria-label="Já adicionado" />
-                          ) : (
-                            <Plus className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                          )}
-                        </button>
-                      </li>
-                    )
-                  })}
+                  {filtered.map((exercise) => (
+                    <ExerciseResultRow
+                      key={exercise.id}
+                      exercise={exercise}
+                      alreadyAdded={selectedIds.includes(exercise.id)}
+                      adding={addingId === exercise.id || addingId !== null}
+                      onSelect={handleSelect}
+                    />
+                  ))}
                   {filtered.length === 0 && (
                     <li className="px-4 py-10 text-center text-sm text-muted-foreground">
                       Nenhum exercício encontrado.
+                    </li>
+                  )}
+                  {filtered.length === 20 && (
+                    <li className="px-4 py-3 text-center text-xs text-muted-foreground">
+                      Mostrando os 20 primeiros resultados. Refine sua busca para encontrar mais.
                     </li>
                   )}
                 </ul>
@@ -160,6 +148,45 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
     </Sheet>
   )
 }
+
+const ExerciseResultRow = memo(function ExerciseResultRow({
+  exercise,
+  alreadyAdded,
+  adding,
+  onSelect,
+}: {
+  exercise: Exercise
+  alreadyAdded: boolean
+  adding: boolean
+  onSelect: (exercise: Exercise) => void
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onSelect(exercise)}
+        disabled={adding}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-all duration-200 ease-in-out hover:bg-muted disabled:opacity-60"
+      >
+        <span className="flex-1">
+          <span className="block font-medium text-foreground">{exercise.nome}</span>
+          <span className="block text-xs text-muted-foreground">
+            {exercise.grupo_muscular}
+            {exercise.equipamento ? ` · ${exercise.equipamento}` : ''}
+            {exercise.user_id ? ' · Personalizado' : ''}
+          </span>
+        </span>
+        {adding ? (
+          <Spinner className="h-4 w-4" />
+        ) : alreadyAdded ? (
+          <Check className="h-5 w-5 text-primary" aria-label="Já adicionado" />
+        ) : (
+          <Plus className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+        )}
+      </button>
+    </li>
+  )
+})
 
 function CustomExerciseForm({
   onCancel,
