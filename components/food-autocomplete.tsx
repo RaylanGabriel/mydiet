@@ -89,9 +89,23 @@ export function FoodAutocomplete({
         .ilike('nome', `%${searchTerm}%`)
         .limit(8)
 
-      if (!error && data && searchTerm === debouncedValue.trim()) {
-        setSuggestions(data)
-        setIsOpen(data.length > 0)
+      let foods: CommonFood[] = (data ?? []).map((food) => ({ ...food, source: 'supabase' }))
+      if (!error && foods.length < 3) {
+        try {
+          const response = await fetch(`/api/foods/search?q=${encodeURIComponent(searchTerm)}`)
+          if (response.ok) {
+            const external = (await response.json()).foods as CommonFood[]
+            const existingNames = new Set(foods.map((food) => food.nome.toLowerCase()))
+            foods = [...foods, ...external.filter((food) => !existingNames.has(food.nome.toLowerCase()))]
+          }
+        } catch {
+          // A busca local continua disponível quando a API externa estiver indisponível.
+        }
+      }
+
+      if (searchTerm === debouncedValue.trim()) {
+        setSuggestions(foods)
+        setIsOpen(foods.length > 0)
       }
       setIsLoading(false)
     }
@@ -99,7 +113,20 @@ export function FoodAutocomplete({
     void searchFoods()
   }, [debouncedValue])
 
-  const handleSelect = (food: CommonFood) => {
+  const handleSelect = async (food: CommonFood) => {
+    if (food.source === 'openfoodfacts') {
+      const supabase = createClient()
+      await supabase.from('common_foods').insert({
+        nome: food.nome,
+        quantidade_padrao: '100g',
+        calorias: food.calorias,
+        proteina: food.proteina,
+        carboidratos: food.carboidratos,
+        gordura: food.gordura,
+        categoria: food.categoria,
+      })
+    }
+
     setSelectedFood(food)
     onChange(food.nome)
     onQuantidadeChange(food.quantidade_padrao)
@@ -145,7 +172,7 @@ export function FoodAutocomplete({
                     <div>
                       <p className="font-medium text-sm">{food.nome}</p>
                       <p className="text-xs text-muted-foreground">
-                        por 100g
+                        por 100g{food.source === 'openfoodfacts' ? ' · Open Food Facts Brasil' : food.source === 'taco-tbca' ? ' · TACO/TBCA' : ''}
                       </p>
                     </div>
                     <div className="text-right">
@@ -165,6 +192,7 @@ export function FoodAutocomplete({
       {selectedFood && (
         <p className="text-xs text-primary mt-1">
           Valores calculados para {quantidade || '100g'} de {selectedFood.nome}
+          {selectedFood.source === 'openfoodfacts' && ' · salvo na base para próximas buscas'}
         </p>
       )}
     </div>
