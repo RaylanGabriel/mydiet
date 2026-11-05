@@ -43,7 +43,7 @@ export interface CommonFood {
   carboidratos: number
   gordura: number
   categoria: string
-  source?: 'supabase' | 'openfoodfacts' | 'taco-tbca'
+  source?: 'supabase' | 'openfoodfacts' | 'taco-tbca' | 'fatsecret'
   serving_size?: string | null
 }
 
