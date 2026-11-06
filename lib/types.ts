@@ -22,12 +22,17 @@ export interface Profile {
   foto_perfil_url: string | null
   meta_calorias_diarias: number
   meta_agua_ml: number
+  /** ml adicionados a cada toque no contador de agua (padrao 250) */
+  agua_por_copo_ml: number
   sexo: 'masculino' | 'feminino' | null
   idade: number | null
   altura_cm: number | null
   peso_kg: number | null
   nivel_atividade: 'sedentario' | 'leve' | 'moderado' | 'intenso' | 'muito_intenso' | null
+  /** Objetivo principal (coluna legada; mantida em sincronia com `objetivos`) */
   objetivo: 'emagrecer' | 'manter' | 'ganhar_massa' | 'condicionamento' | null
+  /** Todos os objetivos escolhidos. Pode não existir antes do script 006. */
+  objetivos?: ('emagrecer' | 'manter' | 'ganhar_massa' | 'condicionamento')[] | null
   experiencia_treino: 'iniciante' | 'intermediario' | 'avancado' | null
   dias_treino_semana: number | null
   created_at: string

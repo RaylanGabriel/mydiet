@@ -79,12 +79,14 @@ export function useMeals(date: string) {
     const supabase = createClient()
     
     // Delete will cascade to meal_items and food_options
-    await supabase
+    const { error } = await supabase
       .from('meals')
       .delete()
       .eq('id', mealId)
 
-    mutate()
+    if (error) throw error
+
+    await mutate()
   }
 
   const selectFoodOption = async (itemId: string, optionId: string) => {

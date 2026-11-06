@@ -7,7 +7,7 @@ interface MealTimelineProps {
   meals: MealWithItems[]
   onToggleComplete: (mealId: string, completed: boolean) => void
   onSelectOption: (itemId: string, optionId: string) => void
-  onDelete: (mealId: string) => void
+  onDelete: (mealId: string) => Promise<void>
 }
 
 export function MealTimeline({ meals, onToggleComplete, onSelectOption, onDelete }: MealTimelineProps) {

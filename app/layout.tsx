@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Toaster } from '@/components/ui/sonner'
+import { ColorThemeProvider } from '@/components/color-theme-provider'
+import { COLOR_INIT_SCRIPT, DEFAULT_COLOR } from '@/lib/theme-colors'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -44,10 +47,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" className="bg-background" suppressHydrationWarning>
+    <html lang="pt-BR" className="bg-background" data-color={DEFAULT_COLOR} suppressHydrationWarning>
+      <head>
+        {/* Aplica a cor de tema salva antes da pintura (evita piscar verde) */}
+        <script dangerouslySetInnerHTML={{ __html: COLOR_INIT_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {children}
+          <ColorThemeProvider>
+            {children}
+            <Toaster position="top-center" richColors />
+          </ColorThemeProvider>
         </ThemeProvider>
         <Analytics />
       </body>

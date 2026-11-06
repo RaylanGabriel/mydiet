@@ -9,27 +9,54 @@ import { NutritionPlanCard } from '@/components/plan/nutrition-plan-card'
 import { TrainingPlanCard } from '@/components/plan/training-plan-card'
 import { useProfile } from '@/hooks/use-profile'
 import { useWorkouts } from '@/hooks/use-workouts'
+import { useWeightGoal } from '@/hooks/use-weight-goal'
+import { WeightGoalCard } from '@/components/plan/weight-goal-card'
+import { WeightChartCard } from '@/components/plan/weight-chart-card'
 import {
   OBJETIVO_OPTIONS,
   SCIENTIFIC_SOURCES,
   calculateNutritionPlan,
   calculateTrainingPlan,
   getBodyData,
+  primaryObjetivo,
   type BodyData,
+  type Objetivo,
 } from '@/lib/fitness-plan'
 
 export default function PlanoPage() {
   const { profile, isLoading, updateProfile } = useProfile()
   const { createFromPlan } = useWorkouts()
+  const { logWeight } = useWeightGoal()
   const [editing, setEditing] = useState(false)
 
-  const bodyData = getBodyData(profile)
+  const bodyData = useMemo(() => getBodyData(profile), [profile])
   const nutrition = useMemo(() => (bodyData ? calculateNutritionPlan(bodyData) : null), [bodyData])
   const training = useMemo(() => (bodyData ? calculateTrainingPlan(bodyData) : null), [bodyData])
   const showForm = editing || !bodyData
 
+  const changeObjetivos = async (objetivos: Objetivo[]) => {
+    await updateProfile({ objetivos, objetivo: primaryObjetivo(objetivos) })
+  }
+
   const handleSubmit = async (data: BodyData) => {
-    await updateProfile(data)
+    const pesoAnterior = profile?.peso_kg != null ? Number(profile.peso_kg) : null
+    try {
+      await updateProfile({ ...data, objetivo: primaryObjetivo(data.objetivos) })
+      // Peso alterado pelo formulário também entra no histórico de pesagens
+      if (pesoAnterior !== data.peso_kg) {
+        logWeight(data.peso_kg, { updateProfile: false }).catch(() => {
+          // Tabela de pesagens pode não existir ainda (script 007); não bloqueia o plano
+        })
+      }
+    } catch (error) {
+      const message = String((error as { message?: string })?.message ?? '')
+      if (message.includes('objetivos')) {
+        const friendly = new Error('Para salvar mais de um objetivo, execute o script scripts/006_plan_multiple_goals.sql no SQL Editor do Supabase.')
+        friendly.name = 'PlanSaveError'
+        throw friendly
+      }
+      throw error
+    }
     setEditing(false)
   }
 
@@ -41,7 +68,7 @@ export default function PlanoPage() {
     )
   }
 
-  const objetivoLabel = OBJETIVO_OPTIONS.find((o) => o.value === bodyData?.objetivo)?.label
+  const objetivoLabels = OBJETIVO_OPTIONS.filter((o) => bodyData?.objetivos.includes(o.value)).map((o) => o.label)
 
   return (
     <div className="flex flex-1 flex-col">
@@ -63,12 +90,11 @@ export default function PlanoPage() {
           </div>
 
           {bodyData && nutrition && !editing && (
-            <dl className="grid grid-cols-4 gap-2">
+            <dl className="grid grid-cols-3 gap-2">
               {[
                 { label: 'Peso', value: `${bodyData.peso_kg.toString().replace('.', ',')} kg` },
                 { label: 'Altura', value: `${bodyData.altura_cm} cm` },
                 { label: 'IMC', value: nutrition.imc.toString().replace('.', ',') },
-                { label: 'Objetivo', value: objetivoLabel ?? '' },
               ].map((item) => (
                 <div key={item.label} className="flex flex-col rounded-xl bg-primary-foreground/10 px-2.5 py-2">
                   <dt className="text-[11px] text-primary-foreground/70">{item.label}</dt>
@@ -79,6 +105,20 @@ export default function PlanoPage() {
           )}
           {bodyData && nutrition && !editing && (
             <p className="-mt-2 text-xs text-primary-foreground/70">Classificação OMS: {nutrition.imcClassificacao}</p>
+          )}
+          {bodyData && nutrition && !editing && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-primary-foreground/70">Objetivos:</span>
+              {objetivoLabels.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full bg-primary-foreground/15 px-2.5 py-0.5 text-xs font-semibold text-primary-foreground"
+                >
+                  {label}
+                </span>
+              ))}
+              <span className="text-xs text-primary-foreground/70">· {nutrition.estrategia}</span>
+            </div>
           )}
         </div>
       </header>
@@ -101,9 +141,19 @@ export default function PlanoPage() {
               />
             </section>
           ) : (
+            bodyData &&
             nutrition &&
             training && (
               <>
+                <WeightGoalCard
+                  bodyData={bodyData}
+                  onChangeObjetivos={changeObjetivos}
+                  onEditPlan={() => {
+                    setEditing(true)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                />
+                <WeightChartCard />
                 <NutritionPlanCard
                   plan={nutrition}
                   applied={

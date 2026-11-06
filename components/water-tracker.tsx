@@ -10,11 +10,12 @@ import { Button } from '@/components/ui/button'
 interface WaterTrackerProps {
   date: string
   metaAgua?: number
+  /** ml adicionados por toque (configurável no perfil) */
+  mlPorCopo?: number
 }
 
-const GLASS_ML = 250 // cada copo = 250ml
-
-export function WaterTracker({ date, metaAgua = 2500 }: WaterTrackerProps) {
+export function WaterTracker({ date, metaAgua = 2500, mlPorCopo = 250 }: WaterTrackerProps) {
+  const GLASS_ML = Math.max(50, mlPorCopo)
   const [waterMl, setWaterMl] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -152,6 +153,9 @@ export function WaterTracker({ date, metaAgua = 2500 }: WaterTrackerProps) {
         </Button>
         <span className="text-sm font-medium min-w-[80px] text-center">
           {glasses} {glasses === 1 ? 'copo' : 'copos'}
+          <span className="block text-xs font-normal text-muted-foreground">
+            {GLASS_ML}ml cada
+          </span>
         </span>
         <Button 
           variant="outline" 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Droplets, Flame } from 'lucide-react'
+import { Check, Droplets, Flame, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { NutritionPlan } from '@/lib/fitness-plan'
@@ -41,6 +41,17 @@ export function NutritionPlanCard({ plan, applied, onApply }: NutritionPlanCardP
       <p className="-mt-2 text-xs text-muted-foreground">
         Metabolismo basal {plan.bmr} kcal · Gasto diário estimado {plan.tdee} kcal
       </p>
+
+      {plan.avisos.length > 0 && (
+        <ul className="flex flex-col gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-foreground">
+          {plan.avisos.map((a) => (
+            <li key={a} className="flex gap-2">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+              <span className="leading-relaxed">{a}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="flex flex-col gap-2">
         <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">

@@ -4,6 +4,18 @@ import { useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Clock, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { Meal, MealItem } from '@/lib/types'
 import { MealItemRow } from '@/components/meal-item-row'
@@ -12,12 +24,13 @@ interface MealCardProps {
   meal: Meal & { items: (MealItem & { options?: { id: string; nome: string; quantidade: string; calorias: number; is_active: boolean }[] })[] }
   onToggleComplete: (mealId: string, completed: boolean) => void
   onSelectOption: (itemId: string, optionId: string) => void
-  onDelete: (mealId: string) => void
+  onDelete: (mealId: string) => Promise<void>
 }
 
 export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: MealCardProps) {
   const [expanded, setExpanded] = useState(!meal.concluida)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const totalCalories = meal.items.reduce((acc, item) => acc + item.calorias, 0)
 
@@ -33,13 +46,23 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
     return time.slice(0, 5)
   }
 
-  const handleDelete = () => {
-    if (confirmDelete) {
-      onDelete(meal.id)
-    } else {
-      setConfirmDelete(true)
-      // Reset confirm state after 3 seconds
-      setTimeout(() => setConfirmDelete(false), 3000)
+  const mealName = meal.nome || mealTypeLabels[meal.tipo] || 'Refeicao'
+
+  const handleDelete = async () => {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await onDelete(meal.id)
+      setConfirmOpen(false)
+      toast.success(`${mealName} excluida`, {
+        description: `${meal.items.length} ${meal.items.length === 1 ? 'item removido' : 'itens removidos'} do dia.`,
+      })
+    } catch (error) {
+      console.error('Error deleting meal:', error)
+      toast.error('Nao foi possivel excluir a refeicao', {
+        description: 'Tente novamente em instantes.',
+      })
+      setDeleting(false)
     }
   }
 
@@ -108,22 +131,39 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
               </Button>
             )}
             
-            <Button
-              onClick={handleDelete}
-              variant={confirmDelete ? "destructive" : "outline"}
-              size={meal.concluida ? "default" : "icon"}
-              className={cn(
-                meal.concluida && "flex-1"
-              )}
+            <AlertDialog
+              open={confirmOpen}
+              onOpenChange={(open) => {
+                if (!deleting) setConfirmOpen(open)
+              }}
             >
-              <Trash2 className="w-4 h-4" />
-              {confirmDelete && (
-                <span className="ml-2">Confirmar exclusao</span>
-              )}
-              {meal.concluida && !confirmDelete && (
-                <span className="ml-2">Excluir</span>
-              )}
-            </Button>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size={meal.concluida ? "default" : "icon"}
+                  className={cn(meal.concluida && "flex-1")}
+                  aria-label="Excluir refeicao"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {meal.concluida && <span className="ml-2">Excluir</span>}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir {mealName}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A refeicao e {meal.items.length === 1 ? 'seu item' : `seus ${meal.items.length} itens`} ({totalCalories} kcal) serao removidos. Essa acao nao pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+                  <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                    {deleting ? <Spinner className="mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                    {deleting ? 'Excluindo...' : 'Excluir'}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       )}

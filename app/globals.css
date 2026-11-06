@@ -36,6 +36,8 @@
   --chart-3: oklch(0.60 0.12 250);
   --chart-4: oklch(0.70 0.12 175);
   --chart-5: oklch(0.65 0.18 330);
+  /* Linha de gráficos com uma única série (validada para contraste e luminosidade) */
+  --chart-line: oklch(0.55 0.18 145);
   --radius: 0.75rem;
   /* Success (for completed meals) */
   --success: oklch(0.55 0.18 145);
@@ -71,10 +73,114 @@
   --chart-3: oklch(0.70 0.12 245);
   --chart-4: oklch(0.72 0.11 190);
   --chart-5: oklch(0.70 0.16 340);
+  --chart-line: oklch(0.66 0.15 155);
   --success: oklch(0.74 0.15 155);
   --success-foreground: oklch(0.17 0.03 160);
   --warning: oklch(0.80 0.14 75);
   --warning-foreground: oklch(0.22 0.05 70);
+}
+
+/* ==========================================================================
+   Cores de tema (escolhidas em Perfil > Tema). Aplicadas via <html data-color="...">.
+   Verde é o padrão e usa os valores de :root/.dark acima.
+   Contraste conferido (WCAG): cor principal vs card >= 4.5 e botão (primária vs
+   texto do botão) >= 4.5, exceto o amarelo claro, que usa --primary-text para textos.
+   ========================================================================== */
+
+/* Neutros levemente tingidos com o matiz (--h) da cor escolhida */
+html[data-color]:not([data-color='verde']):not(.dark) {
+  --background: oklch(0.985 0.003 var(--h));
+  --foreground: oklch(0.18 0.02 var(--h));
+  --card-foreground: oklch(0.18 0.02 var(--h));
+  --popover-foreground: oklch(0.18 0.02 var(--h));
+  --secondary: oklch(0.94 0.03 var(--h));
+  --secondary-foreground: oklch(0.35 0.08 var(--h));
+  --muted: oklch(0.96 0.015 var(--h));
+  --muted-foreground: oklch(0.45 0.04 var(--h));
+  --accent-foreground: oklch(0.18 0.02 var(--h));
+  --border: oklch(0.9 0.02 var(--h));
+  --input: oklch(0.92 0.015 var(--h));
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+}
+
+html.dark[data-color]:not([data-color='verde']) {
+  --background: oklch(0.16 0.012 var(--h));
+  --foreground: oklch(0.95 0.008 var(--h));
+  --card: oklch(0.21 0.014 var(--h));
+  --card-foreground: oklch(0.95 0.008 var(--h));
+  --popover: oklch(0.23 0.014 var(--h));
+  --popover-foreground: oklch(0.95 0.008 var(--h));
+  --secondary: oklch(0.27 0.025 var(--h));
+  --secondary-foreground: oklch(0.92 0.01 var(--h));
+  --muted: oklch(0.25 0.014 var(--h));
+  --muted-foreground: oklch(0.7 0.015 var(--h));
+  --border: oklch(0.29 0.016 var(--h));
+  --input: oklch(0.29 0.016 var(--h));
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+}
+
+/* Azul */
+html[data-color='azul'] { --h: 255; }
+html[data-color='azul']:not(.dark) {
+  --primary: oklch(0.53 0.17 258);
+  --primary-foreground: oklch(0.99 0 0);
+  --chart-line: oklch(0.53 0.17 258);
+}
+html.dark[data-color='azul'] {
+  --primary: oklch(0.72 0.13 250);
+  --primary-foreground: oklch(0.17 0.03 255);
+  --chart-line: oklch(0.65 0.14 250);
+}
+
+/* Amarelo */
+html[data-color='amarelo'] { --h: 85; }
+html[data-color='amarelo']:not(.dark) {
+  --primary: oklch(0.82 0.16 85);
+  --primary-foreground: oklch(0.22 0.05 70);
+  /* Amarelo sobre branco não tem contraste para texto: textos e ícones usam um dourado escuro */
+  --primary-text: oklch(0.52 0.11 70);
+  --ring: oklch(0.68 0.15 75);
+  --chart-1: oklch(0.66 0.15 75);
+  --chart-line: oklch(0.66 0.15 75);
+}
+html[data-color='amarelo']:not(.dark) .text-primary {
+  color: var(--primary-text);
+}
+html[data-color='amarelo']:not(.dark) .border-primary {
+  border-color: oklch(0.68 0.15 75);
+}
+html.dark[data-color='amarelo'] {
+  --primary: oklch(0.84 0.15 88);
+  --primary-foreground: oklch(0.2 0.04 80);
+  --chart-line: oklch(0.66 0.14 80);
+}
+
+/* Roxo */
+html[data-color='roxo'] { --h: 295; }
+html[data-color='roxo']:not(.dark) {
+  --primary: oklch(0.53 0.2 295);
+  --primary-foreground: oklch(0.99 0 0);
+  --chart-line: oklch(0.53 0.2 295);
+}
+html.dark[data-color='roxo'] {
+  --primary: oklch(0.74 0.14 295);
+  --primary-foreground: oklch(0.18 0.04 295);
+  --chart-line: oklch(0.64 0.17 295);
+}
+
+/* Rosa */
+html[data-color='rosa'] { --h: 355; }
+html[data-color='rosa']:not(.dark) {
+  --primary: oklch(0.57 0.2 358);
+  --primary-foreground: oklch(0.99 0 0);
+  --chart-line: oklch(0.57 0.2 358);
+}
+html.dark[data-color='rosa'] {
+  --primary: oklch(0.76 0.13 355);
+  --primary-foreground: oklch(0.18 0.04 355);
+  --chart-line: oklch(0.65 0.17 358);
 }
 
 @theme inline {

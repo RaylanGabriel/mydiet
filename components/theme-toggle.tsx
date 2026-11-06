@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { Monitor, Moon, Sun } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 const options = [
@@ -27,7 +28,14 @@ export function ThemeToggle() {
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => setTheme(value)}
+            onClick={() => {
+              if (theme === value) return
+              setTheme(value)
+              toast.success('Tema atualizado com sucesso', {
+                id: 'theme-updated', // substitui o aviso anterior em vez de empilhar
+                description: value === 'system' ? 'Modo: seguindo o sistema.' : `Modo: ${label.toLowerCase()}.`,
+              })
+            }}
             className={cn(
               'flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors',
               active

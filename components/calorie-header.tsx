@@ -9,6 +9,7 @@ interface CalorieHeaderProps {
   proteina: number
   carboidratos: number
   gordura: number
+  label?: string
 }
 
 export function CalorieHeader({ 
@@ -16,7 +17,8 @@ export function CalorieHeader({
   goal, 
   proteina = 0, 
   carboidratos = 0, 
-  gordura = 0 
+  gordura = 0,
+  label = 'Hoje',
 }: CalorieHeaderProps) {
   const remaining = goal - consumed
   const percentage = Math.min((consumed / goal) * 100, 100)
@@ -34,7 +36,7 @@ export function CalorieHeader({
   return (
     <header className="bg-primary px-4 pt-6 pb-8 rounded-b-3xl">
       <div className="max-w-lg mx-auto">
-        <p className="text-primary-foreground/80 text-sm mb-4">Hoje</p>
+        <p className="text-primary-foreground/80 text-sm mb-4">{label}</p>
         
         <div className="flex items-center justify-between gap-6">
           {/* Circular Progress */}

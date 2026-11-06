@@ -116,7 +116,8 @@ export function useWorkouts() {
     return created.id as string
   }
 
-  const createFromPlan = async (planWorkouts: PlanWorkout[]) => {
+  /** Cria os treinos do plano. Retorna os exercícios que não existem na biblioteca e foram ignorados. */
+  const createFromPlan = async (planWorkouts: PlanWorkout[]): Promise<string[]> => {
     const userId = await requireUserId()
     const supabase = createClient()
     const names = Array.from(new Set(planWorkouts.flatMap((w) => w.exercicios.map((ex) => ex.nome))))
@@ -127,6 +128,7 @@ export function useWorkouts() {
       .in('nome', names)
     if (libraryError) throw libraryError
     const idByName = new Map((library ?? []).map((ex) => [ex.nome as string, ex.id as string]))
+    const missing = names.filter((nome) => !idByName.has(nome))
 
     const baseOrder = data?.length ?? 0
     for (const [i, planWorkout] of planWorkouts.entries()) {
@@ -160,6 +162,7 @@ export function useWorkouts() {
       }
     }
     await mutate()
+    return missing
   }
 
   return { workouts: data ?? [], error, isLoading, mutate, createWorkout, createFromPlan }

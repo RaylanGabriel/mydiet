@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
@@ -8,6 +9,8 @@ import {
   EXPERIENCIA_OPTIONS,
   NIVEL_ATIVIDADE_OPTIONS,
   OBJETIVO_OPTIONS,
+  describeCombination,
+  toggleObjetivo,
   type BodyData,
   type Experiencia,
   type NivelAtividade,
@@ -28,11 +31,14 @@ function OptionButton({
   onClick,
   title,
   description,
+  multiple = false,
 }: {
   selected: boolean
   onClick: () => void
   title: string
   description?: string
+  /** Mostra uma caixa de seleção para indicar escolha múltipla */
+  multiple?: boolean
 }) {
   return (
     <button
@@ -40,7 +46,8 @@ function OptionButton({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'flex flex-col items-start rounded-xl border px-3 py-2.5 text-left transition-colors',
+        'relative flex flex-col items-start rounded-xl border px-3 py-2.5 text-left transition-colors',
+        multiple && 'pr-8',
         selected
           ? 'border-primary bg-primary/10 text-foreground'
           : 'border-border bg-card text-card-foreground hover:border-muted-foreground/40',
@@ -48,6 +55,17 @@ function OptionButton({
     >
       <span className="text-sm font-semibold">{title}</span>
       {description && <span className="text-xs text-muted-foreground">{description}</span>}
+      {multiple && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded border',
+            selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40',
+          )}
+        >
+          {selected && <Check className="h-3 w-3" strokeWidth={3} />}
+        </span>
+      )}
     </button>
   )
 }
@@ -58,7 +76,10 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
   const [altura, setAltura] = useState(initial?.altura_cm?.toString() ?? '')
   const [peso, setPeso] = useState(initial?.peso_kg?.toString() ?? '')
   const [nivel, setNivel] = useState<NivelAtividade | null>(initial?.nivel_atividade ?? null)
-  const [objetivo, setObjetivo] = useState<Objetivo | null>(initial?.objetivo ?? null)
+  const [objetivos, setObjetivos] = useState<Objetivo[]>(
+    initial?.objetivos?.length ? initial.objetivos : initial?.objetivo ? [initial.objetivo] : [],
+  )
+  const combinacao = describeCombination(objetivos)
   const [experiencia, setExperiencia] = useState<Experiencia | null>(initial?.experiencia_treino ?? null)
   const [dias, setDias] = useState<number | null>(initial?.dias_treino_semana ?? null)
   const [saving, setSaving] = useState(false)
@@ -71,7 +92,7 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
     const alturaN = Number(altura)
     const pesoN = Number(peso.replace(',', '.'))
 
-    if (!sexo || !nivel || !objetivo || !experiencia || !dias) {
+    if (!sexo || !nivel || objetivos.length === 0 || !experiencia || !dias) {
       setError('Preencha todos os campos para gerar seu plano.')
       return
     }
@@ -96,12 +117,16 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
         altura_cm: alturaN,
         peso_kg: Math.round(pesoN * 10) / 10,
         nivel_atividade: nivel,
-        objetivo,
+        objetivos,
         experiencia_treino: experiencia,
         dias_treino_semana: dias,
       })
-    } catch {
-      setError('Não foi possível salvar seus dados. Tente novamente.')
+    } catch (err) {
+      setError(
+        err instanceof Error && err.name === 'PlanSaveError'
+          ? err.message
+          : 'Não foi possível salvar seus dados. Tente novamente.',
+      )
     } finally {
       setSaving(false)
     }
@@ -133,18 +158,27 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium text-foreground">O que você deseja?</legend>
+        <legend className="mb-1 text-sm font-medium text-foreground">O que você deseja?</legend>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Escolha um ou mais. &quot;Manter&quot; não combina com emagrecer ou ganhar massa.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {OBJETIVO_OPTIONS.map((o) => (
             <OptionButton
               key={o.value}
-              selected={objetivo === o.value}
-              onClick={() => setObjetivo(o.value)}
+              selected={objetivos.includes(o.value)}
+              onClick={() => setObjetivos((prev) => toggleObjetivo(prev, o.value))}
               title={o.label}
               description={o.description}
+              multiple
             />
           ))}
         </div>
+        {combinacao && (
+          <p className="mt-1 rounded-lg bg-primary/10 px-3 py-2 text-xs leading-relaxed text-foreground" aria-live="polite">
+            {combinacao}
+          </p>
+        )}
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">

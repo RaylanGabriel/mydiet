@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { toLocalDateString } from '@/lib/date'
 import { createClient } from '@/lib/supabase/client'
 import { getUserId } from '@/lib/supabase/get-user-id'
 import { Button } from '@/components/ui/button'
@@ -36,6 +38,8 @@ interface MealItemInput {
 export default function AdicionarPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  // Trava síncrona: impede envios duplicados por cliques rápidos antes do re-render
+  const submittingRef = useRef(false)
   const [selectedType, setSelectedType] = useState(mealTypes[0].value)
   const [horario, setHorario] = useState(mealTypes[0].defaultTime)
   const [items, setItems] = useState<MealItemInput[]>([
@@ -106,8 +110,11 @@ export default function AdicionarPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
     setLoading(true)
 
+    let success = false
     try {
       const supabase = createClient()
       const userId = await getUserId()
@@ -117,7 +124,7 @@ export default function AdicionarPage() {
         return
       }
 
-      const today = new Date().toISOString().split('T')[0]
+      const today = toLocalDateString()
       const mealType = mealTypes.find(t => t.value === selectedType)
 
       // Create meal
@@ -159,11 +166,28 @@ export default function AdicionarPage() {
         if (itemsError) throw itemsError
       }
 
+      success = true
+      const qtd = validItems.length
+      toast.success(`${mealType?.label || 'Refeicao'} adicionada!`, {
+        description:
+          qtd === 0
+            ? undefined
+            : qtd === 1
+              ? `${validItems[0].nome} foi adicionado.`
+              : `${qtd} alimentos foram adicionados.`,
+      })
       router.push('/dashboard')
     } catch (error) {
       console.error('Error creating meal:', error)
+      toast.error('Nao foi possivel salvar a refeicao', {
+        description: 'Tente novamente em instantes.',
+      })
     } finally {
-      setLoading(false)
+      // Em caso de sucesso, mantém o botão travado até a navegação concluir
+      if (!success) {
+        submittingRef.current = false
+        setLoading(false)
+      }
     }
   }
 

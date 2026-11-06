@@ -2,19 +2,22 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Check, HeartPulse, Lightbulb } from 'lucide-react'
+import { Check, HeartPulse, Lightbulb, Sparkles, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { DIAS_SEMANA } from '@/lib/workout-types'
 import type { TrainingPlan } from '@/lib/fitness-plan'
+import { cn } from '@/lib/utils'
 
 interface TrainingPlanCardProps {
   plan: TrainingPlan
-  onCreate: () => Promise<void>
+  /** Retorna os nomes de exercícios que não existem na biblioteca e foram ignorados */
+  onCreate: () => Promise<string[] | void>
 }
 
 export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
   const [status, setStatus] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
+  const [missing, setMissing] = useState<string[]>([])
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4" aria-labelledby="treino-title">
@@ -23,8 +26,20 @@ export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
           Treino sugerido
         </h2>
         <p className="text-sm font-medium text-primary">{plan.divisao}</p>
+        <p className="text-xs font-medium text-muted-foreground">{plan.resumoSemana}</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{plan.descricao}</p>
       </div>
+
+      {plan.avisos.length > 0 && (
+        <ul className="flex flex-col gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-foreground">
+          {plan.avisos.map((a) => (
+            <li key={a} className="flex gap-2">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+              <span className="leading-relaxed">{a}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <dl className="grid grid-cols-3 gap-2">
         <div className="flex flex-col rounded-xl bg-muted px-3 py-2">
@@ -41,12 +56,31 @@ export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
         </div>
       </dl>
 
+      <details className="group rounded-xl bg-primary/5 p-3" open>
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-card-foreground">
+          <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+          Por que este treino
+          <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Ver</span>
+        </summary>
+        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
+          {plan.motivos.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      </details>
+
       <ul className="flex flex-col gap-3">
         {plan.workouts.map((w) => (
-          <li key={w.nome} className="rounded-xl border border-border p-3">
+          <li
+            key={w.nome}
+            className={cn('rounded-xl border p-3', w.tipo === 'cardio' ? 'border-dashed border-primary/40 bg-primary/5' : 'border-border')}
+          >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-semibold text-card-foreground">{w.nome}</p>
+                <p className="flex items-center gap-1.5 font-semibold text-card-foreground">
+                  {w.tipo === 'cardio' && <HeartPulse className="h-4 w-4 text-primary" aria-hidden="true" />}
+                  {w.nome}
+                </p>
                 <p className="text-sm text-muted-foreground">{w.foco}</p>
               </div>
               <p className="text-right text-xs font-medium text-primary">
@@ -57,8 +91,8 @@ export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
               {w.exercicios.map((ex) => (
                 <li key={ex.nome} className="flex justify-between gap-2 text-sm">
                   <span className="text-card-foreground">{ex.nome}</span>
-                  <span className="shrink-0 text-muted-foreground">
-                    {ex.series} x {ex.repeticoes}
+                  <span className="shrink-0 text-right text-muted-foreground">
+                    {ex.series > 1 ? `${ex.series} x ${ex.repeticoes}` : ex.repeticoes}
                   </span>
                 </li>
               ))}
@@ -99,7 +133,8 @@ export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
           onClick={async () => {
             setStatus('busy')
             try {
-              await onCreate()
+              const result = await onCreate()
+              setMissing(result ?? [])
               setStatus('done')
             } catch {
               setStatus('error')
@@ -109,6 +144,13 @@ export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
           {status === 'busy' && <Spinner className="h-4 w-4" />}
           Criar estes treinos no app
         </Button>
+      )}
+      {status === 'done' && missing.length > 0 && (
+        <p className="text-sm text-muted-foreground" role="status">
+          {missing.length === 1 ? 'Este exercício não está' : 'Estes exercícios não estão'} na biblioteca e
+          {missing.length === 1 ? ' ficou' : ' ficaram'} de fora: {missing.join(', ')}. Execute o script
+          scripts/006_plan_multiple_goals.sql no Supabase para adicioná-los.
+        </p>
       )}
       {status === 'error' && (
         <p className="text-sm text-destructive" role="alert">

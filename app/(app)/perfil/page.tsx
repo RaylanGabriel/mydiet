@@ -12,10 +12,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
-import { ImagePlus, LogOut, Save, User, Droplets, Flame, Target, ChevronRight } from 'lucide-react'
+import { ImagePlus, LogOut, Save, User, Droplets, Flame, Target, ChevronRight, GlassWater, Palette } from 'lucide-react'
 import { InstallAppCard } from '@/components/install-app-card'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { ThemeColorPicker, ThemePreview } from '@/components/theme-color-picker'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+
+const WATER_STEP_PRESETS = [150, 200, 250, 300, 500, 1000]
 
 export default function PerfilPage() {
   const router = useRouter()
@@ -24,6 +30,7 @@ export default function PerfilPage() {
   const [nome, setNome] = useState('')
   const [metaCalorias, setMetaCalorias] = useState(2000)
   const [metaAgua, setMetaAgua] = useState(2500)
+  const [aguaPorCopo, setAguaPorCopo] = useState(250)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -34,18 +41,37 @@ export default function PerfilPage() {
       setNome(profile.nome || '')
       setMetaCalorias(profile.meta_calorias_diarias || 2000)
       setMetaAgua(profile.meta_agua_ml || 2500)
+      setAguaPorCopo(profile.agua_por_copo_ml || 250)
     }
   }, [profile])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
+
+    if (aguaPorCopo < 50 || aguaPorCopo > 2000) {
+      toast.error('Quantidade por toque invalida', {
+        description: 'Escolha um valor entre 50 ml e 2000 ml.',
+      })
+      return
+    }
+
     setSaving(true)
-    
     try {
       await updateProfile({
         nome,
         meta_calorias_diarias: metaCalorias,
         meta_agua_ml: metaAgua,
+        agua_por_copo_ml: aguaPorCopo,
+      })
+      toast.success('Perfil atualizado!')
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? '')
+      toast.error('Nao foi possivel salvar', {
+        description: message.includes('agua_por_copo_ml')
+          ? 'Execute o script scripts/005_profile_water_step.sql no SQL Editor do Supabase.'
+          : 'Tente novamente em instantes.',
       })
     } finally {
       setSaving(false)
@@ -150,7 +176,45 @@ export default function PerfilPage() {
 
       {/* Content */}
       <main className="flex-1 px-4 py-6">
-        <div className="max-w-lg mx-auto space-y-6">
+        <Tabs defaultValue="perfil" className="max-w-lg mx-auto gap-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="perfil">
+              <User className="h-4 w-4" aria-hidden="true" />
+              Perfil
+            </TabsTrigger>
+            <TabsTrigger value="tema">
+              <Palette className="h-4 w-4" aria-hidden="true" />
+              Tema
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tema" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Modo</CardTitle>
+                <CardDescription>Claro, escuro ou seguir o sistema do celular</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ThemeToggle />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Cor do app</CardTitle>
+                <CardDescription>A cor muda na hora e fica salva neste aparelho</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ThemeColorPicker />
+                <div>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Prévia</p>
+                  <ThemePreview />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="perfil" className="space-y-6">
           <Link
             href="/plano"
             className="flex items-center gap-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 transition-colors hover:bg-primary/15"
@@ -222,10 +286,54 @@ export default function PerfilPage() {
                       onChange={(e) => setMetaAgua(parseInt(e.target.value) || 2500)}
                       min={1000}
                       max={5000}
-                      step={250}
+                      step={50}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Recomendado: 2000-3000 ml (2-3 litros) por dia
+                    </p>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="aguaPorCopo">
+                      <span className="flex items-center gap-2">
+                        <GlassWater className="w-4 h-4 text-blue-500" />
+                        Quantidade por toque (ml)
+                      </span>
+                    </FieldLabel>
+                    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Valores sugeridos">
+                      {WATER_STEP_PRESETS.map((ml) => (
+                        <button
+                          key={ml}
+                          type="button"
+                          onClick={() => setAguaPorCopo(ml)}
+                          aria-pressed={aguaPorCopo === ml}
+                          className={cn(
+                            'rounded-lg py-2 text-sm font-medium transition-colors',
+                            aguaPorCopo === ml
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-muted hover:bg-muted/80 text-foreground',
+                          )}
+                        >
+                          {ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`}
+                        </button>
+                      ))}
+                    </div>
+                    <Input
+                      id="aguaPorCopo"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="Outro valor"
+                      value={aguaPorCopo || ''}
+                      onChange={(e) => setAguaPorCopo(parseInt(e.target.value) || 0)}
+                      min={50}
+                      max={2000}
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Quanto de agua e somado cada vez que voce toca no + na tela inicial
+                      {aguaPorCopo >= 50 && metaAgua > 0
+                        ? ` (${Math.ceil(metaAgua / aguaPorCopo)} ${Math.ceil(metaAgua / aguaPorCopo) === 1 ? 'vez' : 'vezes'} para bater a meta)`
+                        : ''}
+                      .
                     </p>
                   </Field>
                 </FieldGroup>
@@ -235,16 +343,6 @@ export default function PerfilPage() {
                   {saving ? 'Salvando...' : 'Salvar Alteracoes'}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Aparencia</CardTitle>
-              <CardDescription>Escolha entre tema claro, escuro ou o do sistema</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ThemeToggle />
             </CardContent>
           </Card>
 
@@ -266,7 +364,8 @@ export default function PerfilPage() {
               </Button>
             </CardContent>
           </Card>
-        </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )
