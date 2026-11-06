@@ -52,8 +52,10 @@ export default function RootLayout({
       <head>
         {/* Aplica a cor de tema salva antes da pintura (evita piscar verde) */}
         <script dangerouslySetInnerHTML={{ __html: COLOR_INIT_SCRIPT }} />
-        {/* Manifest gerado por aparelho (app/manifest.json/route.ts) com a cor escolhida */}
-        <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
+        {/* Manifest gerado por aparelho (app/app-manifest/route.ts) com a cor escolhida */}
+        <link rel="manifest" href="/app-manifest" crossOrigin="use-credentials" />
+        {/* O Next só gera a versão sem prefixo; o iOS usa esta para abrir em tela cheia */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

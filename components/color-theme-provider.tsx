@@ -41,7 +41,7 @@ export function ColorThemeProvider({ children }: { children: React.ReactNode }) 
     } catch {
       // Navegação privada / armazenamento bloqueado: vale só para esta sessão
     }
-    // Cookie lido pelo /manifest.json: no Android, é o manifest que colore a
+    // Cookie lido pelo /app-manifest: no Android, é o manifest que colore a
     // barra de botões do sistema no app instalado
     document.cookie = colorCookie(next)
   }, [])

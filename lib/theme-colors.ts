@@ -10,7 +10,7 @@ export const COLOR_THEMES = [
 export type ColorThemeId = (typeof COLOR_THEMES)[number]['id']
 
 export const DEFAULT_COLOR: ColorThemeId = 'verde'
-/** Mesmo nome no localStorage e no cookie (o cookie é lido pelo /manifest.json) */
+/** Mesmo nome no localStorage e no cookie (o cookie é lido pelo /app-manifest) */
 export const COLOR_STORAGE_KEY = 'mydiet-color'
 
 export function isColorThemeId(value: unknown): value is ColorThemeId {
