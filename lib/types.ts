@@ -48,8 +48,12 @@ export interface CommonFood {
   carboidratos: number
   gordura: number
   categoria: string
-  source?: 'supabase' | 'openfoodfacts' | 'taco-tbca' | 'fatsecret'
+  source?: 'supabase' | 'openfoodfacts' | 'taco-tbca' | 'fatsecret' | 'ia'
   serving_size?: string | null
+  /** Marca do produto (fontes externas) */
+  marca?: string | null
+  /** Porção caseira sugerida, ex.: "1 unidade média (50g)" */
+  porcao?: string | null
 }
 
 export interface Meal {
