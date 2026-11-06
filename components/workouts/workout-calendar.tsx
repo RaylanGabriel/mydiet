@@ -7,6 +7,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { useMonthSessions } from '@/hooks/use-workouts'
 import { DIAS_SEMANA, formatDuration, workoutLetter, type WorkoutSession } from '@/lib/workout-types'
 import { cn } from '@/lib/utils'
+import { formatCardio } from '@/lib/cardio'
+import { formatSeconds } from '@/lib/exercise-kind'
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
 const DAY_FORMATTER = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -197,7 +199,11 @@ export function WorkoutCalendar() {
                                       <li key={set.id} className="flex justify-between gap-3 text-sm text-muted-foreground">
                                         <span>Série {set.serie_numero}</span>
                                         <span className="text-right">
-                                          {set.repeticoes} reps · {set.carga_kg === null ? 'Sem carga' : `${Number(set.carga_kg)} kg`}
+                                          {set.duracao_seg != null
+                                            ? formatSeconds(set.duracao_seg)
+                                            : set.duracao_min != null || set.velocidade_kmh != null || set.nivel != null
+                                            ? formatCardio(set) || 'Concluído'
+                                            : `${set.repeticoes} reps · ${set.carga_kg === null ? 'Sem carga' : `${Number(set.carga_kg)} kg`}`}
                                         </span>
                                       </li>
                                     ))}

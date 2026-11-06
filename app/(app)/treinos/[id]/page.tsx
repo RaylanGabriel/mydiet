@@ -13,6 +13,17 @@ import { WorkoutExerciseEditor } from '@/components/workouts/workout-exercise-ed
 import { DaysOfWeekPicker } from '@/components/workouts/days-of-week-picker'
 import { CoverPicker } from '@/components/workouts/cover-picker'
 import { estimateWorkoutMinutes } from '@/lib/workout-types'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 export default function EditarTreinoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -30,6 +41,7 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
   } = useWorkout(id)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   if (isLoading) {
     return (
@@ -72,34 +84,53 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
               if (nome && nome !== workout.nome) updateWorkout({ nome })
             }}
           />
-          <Button
-            variant="ghost"
-            size="icon"
-            className={confirmDelete ? 'text-destructive' : 'text-muted-foreground'}
-            aria-label={confirmDelete ? 'Confirmar exclusão do treino' : 'Excluir treino'}
-            onClick={async () => {
-              if (!confirmDelete) {
-                setConfirmDelete(true)
-                setTimeout(() => setConfirmDelete(false), 3000)
-                return
-              }
-              await deleteWorkout()
-              router.push('/treinos')
+          <AlertDialog
+            open={confirmDelete}
+            onOpenChange={(open) => {
+              if (!deleting) setConfirmDelete(open)
             }}
           >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground" aria-label="Excluir treino">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir {workout.nome}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  O treino e seus {exercises.length} {exercises.length === 1 ? 'exercício' : 'exercícios'} serão removidos. Os
+                  treinos que você já fez continuam no histórico. Essa ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+                <Button
+                  variant="destructive"
+                  disabled={deleting}
+                  onClick={async () => {
+                    setDeleting(true)
+                    try {
+                      await deleteWorkout()
+                      toast.success('Treino excluído', { description: workout.nome })
+                      router.push('/treinos')
+                    } catch {
+                      toast.error('Não foi possível excluir o treino.')
+                      setDeleting(false)
+                    }
+                  }}
+                >
+                  {deleting ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                  {deleting ? 'Excluindo...' : 'Excluir'}
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
 
       <main className="flex-1 px-4 py-4">
         <div className="mx-auto flex max-w-lg flex-col gap-5">
-          {confirmDelete && (
-            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="status">
-              Toque na lixeira novamente para excluir este treino.
-            </p>
-          )}
-
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-foreground">Foto de capa</span>
             <CoverPicker

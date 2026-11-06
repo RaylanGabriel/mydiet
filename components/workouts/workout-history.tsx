@@ -2,9 +2,20 @@
 
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useWorkoutSessions } from '@/hooks/use-workouts'
-import { formatDuration } from '@/lib/workout-types'
+import { formatDuration, type WorkoutSession } from '@/lib/workout-types'
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'short',
@@ -14,9 +25,24 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
 export function WorkoutHistory() {
   const { sessions, deleteSession } = useWorkoutSessions()
-  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<WorkoutSession | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   if (sessions.length === 0) return null
+
+  const confirmDelete = async () => {
+    if (!toDelete) return
+    setDeleting(true)
+    try {
+      await deleteSession(toDelete.id)
+      toast.success('Treino removido do histórico', { description: toDelete.workout_nome })
+      setToDelete(null)
+    } catch {
+      toast.error('Não foi possível remover do histórico.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="historico-title">
@@ -42,23 +68,39 @@ export function WorkoutHistory() {
             <Button
               variant="ghost"
               size="icon"
-              className={confirmId === session.id ? 'text-destructive' : 'text-muted-foreground'}
-              aria-label={confirmId === session.id ? 'Confirmar exclusão' : 'Excluir treino do histórico'}
-              onClick={async () => {
-                if (confirmId === session.id) {
-                  await deleteSession(session.id)
-                  setConfirmId(null)
-                } else {
-                  setConfirmId(session.id)
-                  setTimeout(() => setConfirmId((c) => (c === session.id ? null : c)), 3000)
-                }
-              }}
+              className="text-muted-foreground"
+              aria-label={`Remover ${session.workout_nome} do histórico`}
+              onClick={() => setToDelete(session)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </li>
         ))}
       </ul>
+
+      <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && !deleting && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover do histórico?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete && (
+                <>
+                  O registro de <strong>{toDelete.workout_nome}</strong> em {dateFormatter.format(new Date(toDelete.iniciado_em))}{' '}
+                  e suas {toDelete.series_concluidas} séries serão apagados. Isso também afeta os recordes e a coluna
+                  &quot;Anterior&quot;. Essa ação não pode ser desfeita.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? 'Removendo...' : 'Remover'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }

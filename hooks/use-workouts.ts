@@ -3,8 +3,9 @@
 import useSWR, { mutate as globalMutate } from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import { getUserId } from '@/lib/supabase/get-user-id'
-import type { Exercise, Workout, WorkoutExercise, WorkoutSession } from '@/lib/workout-types'
+import type { Exercise, Workout, WorkoutExercise, WorkoutSession, WorkoutSessionSet } from '@/lib/workout-types'
 import type { PlanWorkout } from '@/lib/fitness-plan'
+import { exerciseKind } from '@/lib/exercise-kind'
 
 const COVER_BUCKET = 'workout-covers'
 const MAX_COVER_BYTES = 5 * 1024 * 1024
@@ -212,14 +213,14 @@ export function useWorkout(id: string) {
   const addExercise = async (exercise: Exercise) => {
     const userId = await requireUserId()
     const supabase = createClient()
-    const isCardio = exercise.grupo_muscular === 'Cardio'
+    const kind = exerciseKind(exercise)
     const { error: insertError } = await supabase.from('workout_exercises').insert({
       workout_id: id,
       user_id: userId,
       exercise_id: exercise.id,
-      series: isCardio ? 1 : 3,
-      repeticoes: isCardio ? '20 min' : '12',
-      descanso_segundos: isCardio ? 0 : 60,
+      series: kind === 'cardio' ? 1 : 3,
+      repeticoes: kind === 'cardio' ? '20 min' : kind === 'tempo' ? '30 s' : '12',
+      descanso_segundos: kind === 'cardio' ? 0 : kind === 'tempo' ? 45 : 60,
       ordem: data?.workout_exercises.length ?? 0,
     })
     if (insertError) throw insertError
@@ -228,14 +229,19 @@ export function useWorkout(id: string) {
 
   const updateExercise = async (
     workoutExerciseId: string,
-    updates: Partial<Pick<WorkoutExercise, 'series' | 'repeticoes' | 'carga_kg' | 'cargas_por_serie' | 'descanso_segundos' | 'observacoes'>>,
+    updates: Partial<
+      Pick<
+        WorkoutExercise,
+        'series' | 'repeticoes' | 'carga_kg' | 'cargas_por_serie' | 'descanso_segundos' | 'observacoes' | 'velocidade_kmh' | 'inclinacao_pct' | 'nivel'
+      >
+    >,
   ) => {
     const supabase = createClient()
     const { error: updateError } = await supabase
       .from('workout_exercises')
       .update(updates)
       .eq('id', workoutExerciseId)
-    if (updateError) throw updateError
+    if (updateError) throw missingCardioColumns(updateError) ? new Error(MIGRATION_008_MSG) : updateError
     await mutate()
   }
 
@@ -314,13 +320,103 @@ export function useExerciseLibrary() {
   return { exercises: data ?? [], error, isLoading, createExercise }
 }
 
+/** Uma série já registrada, com a data da sessão. */
+export interface HistorySet extends WorkoutSessionSet {
+  iniciado_em: string
+}
+
+export interface ExerciseHistory {
+  /** Séries da última sessão em que o exercício foi feito */
+  last: HistorySet[]
+  lastDate: string | null
+  /** Melhores marcas de todas as sessões anteriores */
+  best: {
+    carga: number | null
+    reps: number | null
+    segundos: number | null
+    /** Maior 1RM estimado (Epley) = carga × (1 + reps/30) */
+    e1rm: number | null
+  }
+}
+
+export function estimate1RM(carga: number, reps: number) {
+  if (carga <= 0 || reps <= 0) return 0
+  return reps === 1 ? carga : carga * (1 + reps / 30)
+}
+
+async function fetchExerciseHistory(exerciseIds: string[]): Promise<Record<string, ExerciseHistory>> {
+  if (exerciseIds.length === 0) return {}
+  const supabase = createClient()
+  // `*` evita erro caso as colunas dos scripts 008/009 ainda não existam
+  const { data, error } = await supabase
+    .from('session_sets')
+    .select('*, workout_sessions(iniciado_em)')
+    .in('exercise_id', exerciseIds)
+    .limit(5000)
+  if (error) throw error
+
+  const rows: HistorySet[] = (data ?? []).map((r) => {
+    const { workout_sessions, ...set } = r as WorkoutSessionSet & { workout_sessions: { iniciado_em: string } | null }
+    return { ...set, iniciado_em: workout_sessions?.iniciado_em ?? '' }
+  })
+
+  const result: Record<string, ExerciseHistory> = {}
+  for (const id of exerciseIds) {
+    const sets = rows.filter((r) => r.exercise_id === id)
+    if (sets.length === 0) continue
+    const lastSession = sets.reduce((a, b) => (b.iniciado_em > a.iniciado_em ? b : a)).session_id
+    const last = sets.filter((s) => s.session_id === lastSession).sort((a, b) => a.serie_numero - b.serie_numero)
+
+    const cargas = sets.map((s) => Number(s.carga_kg)).filter((n) => Number.isFinite(n) && n > 0)
+    const reps = sets.map((s) => s.repeticoes).filter((n) => n > 0)
+    const segundos = sets.map((s) => Number(s.duracao_seg)).filter((n) => Number.isFinite(n) && n > 0)
+    const e1rms = sets.map((s) => estimate1RM(Number(s.carga_kg) || 0, s.repeticoes)).filter((n) => n > 0)
+
+    result[id] = {
+      last,
+      lastDate: last[0]?.iniciado_em ?? null,
+      best: {
+        carga: cargas.length ? Math.max(...cargas) : null,
+        reps: reps.length ? Math.max(...reps) : null,
+        segundos: segundos.length ? Math.max(...segundos) : null,
+        e1rm: e1rms.length ? Math.max(...e1rms) : null,
+      },
+    }
+  }
+  return result
+}
+
+/** Última vez e recordes de cada exercício (usado no treino em andamento). */
+export function useExerciseHistory(exerciseIds: string[]) {
+  const key = exerciseIds.length ? ['exercise-history', [...exerciseIds].sort().join(',')] : null
+  const { data, isLoading } = useSWR(key, () => fetchExerciseHistory(exerciseIds), { revalidateOnFocus: false })
+  return { history: data ?? {}, isLoading }
+}
+
 export interface CompletedSet {
   exercise_id: string
   exercise_nome: string
   serie_numero: number
   repeticoes: number
   carga_kg: number | null
+  /** Só para exercícios por tempo (prancha etc.) */
+  duracao_seg?: number | null
+  /** Só para cardio */
+  cardio?: {
+    duracao_min: number | null
+    velocidade_kmh: number | null
+    inclinacao_pct: number | null
+    nivel: number | null
+  }
 }
+
+/** Colunas novas dos scripts 008/009 ainda não existem no banco. */
+function missingCardioColumns(error: { message?: string; code?: string }) {
+  return error.code === 'PGRST204' || /duracao_min|duracao_seg|velocidade_kmh|inclinacao_pct|nivel/.test(error.message ?? '')
+}
+
+const MIGRATION_008_MSG =
+  'Para salvar cardio e exercícios por tempo, execute os scripts scripts/008_exercises_machines_cardio.sql e scripts/009_timed_sets.sql no SQL Editor do Supabase.'
 
 export function useWorkoutSessions() {
   const { data, error, isLoading, mutate } = useSWR('workout-sessions', fetchSessions)
@@ -355,19 +451,38 @@ export function useWorkoutSessions() {
 
     if (input.sets.length > 0) {
       const { error: setsError } = await supabase.from('session_sets').insert(
-        input.sets.map((set) => ({ ...set, session_id: session.id, user_id: userId })),
+        input.sets.map(({ cardio, duracao_seg, ...set }) => ({
+          ...set,
+          // Campos novos só entram quando existem, para não quebrar treinos comuns
+          ...(cardio ?? {}),
+          ...(duracao_seg != null ? { duracao_seg } : {}),
+          session_id: session.id,
+          user_id: userId,
+        })),
       )
-      if (setsError) throw setsError
+      if (setsError) {
+        // Não deixa uma sessão "vazia" para trás
+        await supabase.from('workout_sessions').delete().eq('id', session.id)
+        throw missingCardioColumns(setsError) ? new Error(MIGRATION_008_MSG) : setsError
+      }
     }
 
-    await Promise.all([mutate(), revalidateMonthSessions()])
+    await Promise.all([
+      mutate(),
+      revalidateMonthSessions(),
+      globalMutate((key) => Array.isArray(key) && key[0] === 'exercise-history'),
+    ])
   }
 
   const deleteSession = async (sessionId: string) => {
     const supabase = createClient()
     const { error: deleteError } = await supabase.from('workout_sessions').delete().eq('id', sessionId)
     if (deleteError) throw deleteError
-    await Promise.all([mutate(), revalidateMonthSessions()])
+    await Promise.all([
+      mutate(),
+      revalidateMonthSessions(),
+      globalMutate((key) => Array.isArray(key) && key[0] === 'exercise-history'),
+    ])
   }
 
   return { sessions: data ?? [], error, isLoading, saveSession, deleteSession }

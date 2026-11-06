@@ -21,6 +21,29 @@ import { useExerciseLibrary } from '@/hooks/use-workouts'
 import { GRUPOS_MUSCULARES, type Exercise } from '@/lib/workout-types'
 import { cn } from '@/lib/utils'
 
+const normalizeText = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+
+/** Agrupa os equipamentos da biblioteca em poucas categorias para o filtro. */
+const EQUIPAMENTO_CATEGORIAS = [
+  { id: 'maquina', label: 'Máquina', test: (e: string) => e.includes('maquina') },
+  { id: 'polia', label: 'Polia', test: (e: string) => e.includes('polia') || e.includes('cabo') || e.includes('crossover') },
+  { id: 'halteres', label: 'Halteres', test: (e: string) => e.includes('halter') },
+  { id: 'barra', label: 'Barra', test: (e: string) => e.startsWith('barra') },
+  { id: 'smith', label: 'Smith', test: (e: string) => e.includes('smith') },
+  { id: 'peso-corporal', label: 'Peso corporal', test: (e: string) => e.includes('peso corporal') || e.includes('livre') || e === '' },
+] as const
+type CategoriaId = (typeof EQUIPAMENTO_CATEGORIAS)[number]['id'] | 'outros'
+
+function categoriaDe(equipamento: string | null): CategoriaId {
+  const e = normalizeText(equipamento ?? '')
+  return EQUIPAMENTO_CATEGORIAS.find((c) => c.test(e))?.id ?? 'outros'
+}
+
 interface ExercisePickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -32,20 +55,43 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
   const { exercises, isLoading, createExercise } = useExerciseLibrary()
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<string | null>(null)
+  const [equip, setEquip] = useState<CategoriaId | null>(null)
+
+  // Só mostra categorias que existem na biblioteca
+  const categorias = useMemo(() => {
+    const presentes = new Set(exercises.map((ex) => categoriaDe(ex.equipamento)))
+    const lista: { id: CategoriaId; label: string }[] = EQUIPAMENTO_CATEGORIAS.filter((c) => presentes.has(c.id)).map((c) => ({
+      id: c.id,
+      label: c.label,
+    }))
+    if (presentes.has('outros')) lista.push({ id: 'outros', label: 'Outros' })
+    return lista
+  }, [exercises])
   const [addingId, setAddingId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const debouncedQuery = useDebouncedValue(query, 350)
 
   const filtered = useMemo(() => {
-    const normalized = debouncedQuery.trim().toLowerCase()
+    const termos = normalizeText(debouncedQuery).split(/\s+/).filter(Boolean)
     return exercises
-      .filter(
-        (ex) =>
-          (!group || ex.grupo_muscular === group) &&
-          (!normalized || ex.nome.toLowerCase().includes(normalized)),
-      )
-      .slice(0, 20)
-  }, [exercises, debouncedQuery, group])
+      .filter((ex) => {
+        if (group && ex.grupo_muscular !== group) return false
+        if (equip && categoriaDe(ex.equipamento) !== equip) return false
+        if (termos.length === 0) return true
+        // Busca no nome, equipamento e instruções, sem acento e em qualquer ordem:
+        // "extensora" também acha "Extensora na polia (substitui cadeira extensora)"
+        const alvo = normalizeText(`${ex.nome} ${ex.equipamento ?? ''} ${ex.instrucoes ?? ''}`)
+        return termos.every((t) => alvo.includes(t))
+      })
+      .sort((a, b) => {
+        // Quem tem o termo no nome aparece antes de quem só tem nas instruções
+        if (termos.length === 0) return 0
+        const na = termos.every((t) => normalizeText(a.nome).includes(t)) ? 0 : 1
+        const nb = termos.every((t) => normalizeText(b.nome).includes(t)) ? 0 : 1
+        return na - nb
+      })
+      .slice(0, 30)
+  }, [exercises, debouncedQuery, group, equip])
 
   const handleSelect = async (exercise: Exercise) => {
     setAddingId(exercise.id)
@@ -106,6 +152,27 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
                   </button>
                 ))}
               </div>
+              {categorias.length > 1 && (
+                <div className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4" role="group" aria-label="Filtrar por equipamento">
+                  <span className="shrink-0 text-xs text-muted-foreground">Equipamento:</span>
+                  {categorias.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setEquip((cur) => (cur === c.id ? null : c.id))}
+                      aria-pressed={equip === c.id}
+                      className={cn(
+                        'shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        equip === c.id
+                          ? 'border-foreground/60 bg-muted text-foreground'
+                          : 'border-dashed border-border text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -127,9 +194,9 @@ export function ExercisePicker({ open, onOpenChange, onSelect, selectedIds }: Ex
                       Nenhum exercício encontrado.
                     </li>
                   )}
-                  {filtered.length === 20 && (
+                  {filtered.length === 30 && (
                     <li className="px-4 py-3 text-center text-xs text-muted-foreground">
-                      Mostrando os 20 primeiros resultados. Refine sua busca para encontrar mais.
+                      Mostrando os 30 primeiros resultados. Refine sua busca para encontrar mais.
                     </li>
                   )}
                 </ul>
@@ -169,7 +236,14 @@ const ExerciseResultRow = memo(function ExerciseResultRow({
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-all duration-200 ease-in-out hover:bg-muted disabled:opacity-60"
       >
         <span className="flex-1">
-          <span className="block font-medium text-foreground">{exercise.nome}</span>
+          <span className="flex flex-wrap items-center gap-1.5 font-medium text-foreground">
+            {exercise.nome}
+            {/substitui/i.test(exercise.nome) && (
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+                Improviso
+              </span>
+            )}
+          </span>
           <span className="block text-xs text-muted-foreground">
             {exercise.grupo_muscular}
             {exercise.equipamento ? ` · ${exercise.equipamento}` : ''}

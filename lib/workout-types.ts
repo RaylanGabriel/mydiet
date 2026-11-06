@@ -19,6 +19,10 @@ export interface WorkoutExercise {
   descanso_segundos: number
   observacoes: string | null
   ordem: number
+  /** Ritmo alvo do cardio (script 008). Ausente antes da migração. */
+  velocidade_kmh?: number | null
+  inclinacao_pct?: number | null
+  nivel?: number | null
   exercise: Exercise
 }
 
@@ -74,6 +78,13 @@ export interface WorkoutSessionSet {
   serie_numero: number
   repeticoes: number
   carga_kg: number | null
+  /** Exercícios por tempo (script 009) */
+  duracao_seg?: number | null
+  /** Cardio (script 008) */
+  duracao_min?: number | null
+  velocidade_kmh?: number | null
+  inclinacao_pct?: number | null
+  nivel?: number | null
 }
 
 export const GRUPOS_MUSCULARES = [
@@ -94,10 +105,14 @@ export const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as
 const SEGUNDOS_POR_SERIE = 40
 
 export function estimateWorkoutMinutes(exercises: WorkoutExercise[]) {
-  const totalSeconds = exercises.reduce(
-    (sum, ex) => sum + ex.series * (SEGUNDOS_POR_SERIE + ex.descanso_segundos),
-    0,
-  )
+  const totalSeconds = exercises.reduce((sum, ex) => {
+    // Cardio: a duração está no próprio campo (ex.: "20 min")
+    if (ex.exercise?.grupo_muscular === 'Cardio') {
+      const min = Number((ex.repeticoes.replace(',', '.').match(/(\d+(?:\.\d+)?)/) ?? [])[1]) || 0
+      return sum + ex.series * (min * 60 + ex.descanso_segundos)
+    }
+    return sum + ex.series * (SEGUNDOS_POR_SERIE + ex.descanso_segundos)
+  }, 0)
   return Math.max(0, Math.round(totalSeconds / 60))
 }
 
