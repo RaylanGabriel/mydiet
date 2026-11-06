@@ -393,7 +393,7 @@ export function WorkoutRunner({ workout }: { workout: Workout }) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+      <header className="sticky top-safe z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-lg flex-col gap-2 px-4 py-3">
           <div className="flex items-center gap-3">
             <Button

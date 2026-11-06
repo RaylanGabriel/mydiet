@@ -67,7 +67,7 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+      <header className="sticky top-safe z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center gap-2 px-2 py-2">
           <Button asChild variant="ghost" size="icon" aria-label="Voltar">
             <Link href="/treinos">
@@ -195,7 +195,10 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
       </main>
 
       {exercises.length > 0 && (
-        <div className="sticky bottom-20 z-30 px-4 pb-3">
+        <div
+          className="sticky z-30 px-4 pb-3"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           <div className="mx-auto max-w-lg">
             <Button asChild size="lg" className="w-full shadow-lg">
               <Link href={`/treinos/${workout.id}/executar`}>

@@ -15,7 +15,9 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-20">
+    <div className="min-h-screen flex flex-col bg-background pt-safe pb-20">
+      {/* Faixa atrás da barra de status: o conteúdo rolado não passa por baixo dos ícones */}
+      <div aria-hidden className="fixed inset-x-0 top-0 z-50 h-safe-top bg-background" />
       {children}
       <BottomNav />
     </div>

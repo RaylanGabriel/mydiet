@@ -237,6 +237,15 @@ html.dark[data-color='rosa'] {
   .mb-safe {
     margin-bottom: env(safe-area-inset-bottom);
   }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .top-safe {
+    top: env(safe-area-inset-top);
+  }
+  .h-safe-top {
+    height: env(safe-area-inset-top);
+  }
 }
 
 /* Smooth scrolling */
