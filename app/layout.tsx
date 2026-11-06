@@ -59,7 +59,12 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <ColorThemeProvider>
             {children}
-            <Toaster position="top-center" richColors />
+            <Toaster
+              position="top-center"
+              richColors
+              offset={{ top: 'calc(env(safe-area-inset-top) + 32px)' }}
+              mobileOffset={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
+            />
           </ColorThemeProvider>
         </ThemeProvider>
         <Analytics />

@@ -28,7 +28,8 @@ export function CalorieHeader({
   const strokeDashoffset = circumference - (percentage / 100) * circumference
 
   const macros = useMemo(() => [
-    { label: 'Proteinas', value: proteina, color: 'bg-chart-1' },
+    // bg-chart-1 é a cor primária, igual ao fundo deste cabeçalho, e não aparece
+    { label: 'Proteinas', value: proteina, color: 'bg-primary-foreground' },
     { label: 'Carboidratos', value: carboidratos, color: 'bg-chart-2' },
     { label: 'Gorduras', value: gordura, color: 'bg-chart-3' },
   ], [proteina, carboidratos, gordura])
