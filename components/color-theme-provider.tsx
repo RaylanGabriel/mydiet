@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
-import { COLOR_STORAGE_KEY, COLOR_THEMES, DEFAULT_COLOR, isColorThemeId, type ColorThemeId } from '@/lib/theme-colors'
+import { COLOR_STORAGE_KEY, COLOR_THEMES, DEFAULT_COLOR, colorCookie, isColorThemeId, type ColorThemeId } from '@/lib/theme-colors'
 
 interface ColorThemeContextValue {
   color: ColorThemeId
@@ -41,6 +41,9 @@ export function ColorThemeProvider({ children }: { children: React.ReactNode }) 
     } catch {
       // Navegação privada / armazenamento bloqueado: vale só para esta sessão
     }
+    // Cookie lido pelo /manifest.json: no Android, é o manifest que colore a
+    // barra de botões do sistema no app instalado
+    document.cookie = colorCookie(next)
   }, [])
 
   return <ColorThemeContext.Provider value={{ color, setColor }}>{children}</ColorThemeContext.Provider>

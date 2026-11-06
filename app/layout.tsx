@@ -14,7 +14,8 @@ export const metadata: Metadata = {
   title: 'MyDiet - Dieta e Treinos',
   description: 'Acompanhe sua dieta, hidratação e treinos de musculação (Treino A, B, C) em um só app.',
   generator: 'v0.app',
-  manifest: '/manifest.json',
+  // manifest: link escrito manualmente no <head> abaixo, com crossOrigin="use-credentials"
+  // para o navegador enviar o cookie da cor (o Next só faz isso em previews da Vercel).
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -51,6 +52,8 @@ export default function RootLayout({
       <head>
         {/* Aplica a cor de tema salva antes da pintura (evita piscar verde) */}
         <script dangerouslySetInnerHTML={{ __html: COLOR_INIT_SCRIPT }} />
+        {/* Manifest gerado por aparelho (app/manifest.json/route.ts) com a cor escolhida */}
+        <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
