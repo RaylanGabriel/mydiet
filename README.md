@@ -13,6 +13,22 @@ Web app mobile-first em português, instalável como aplicativo no Android e no 
 
 **[🔗 Acessar o app](https://controle-dieta.vercel.app)**
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/foto.png" width="200" alt="IA identificando arroz, feijão e frango em uma foto, com porções, calorias e macronutrientes"><br><b>Refeição analisada por foto</b></td>
+    <td align="center"><img src="docs/screenshots/treino.gif" width="200" alt="Registro de séries com detecção de recorde, cronômetro de descanso e resumo do treino"><br><b>Treino com recordes em tempo real</b></td>
+    <td align="center"><img src="docs/screenshots/painel.png" width="200" alt="Painel diário com calorias, macronutrientes, água e refeições"><br><b>Painel do dia</b></td>
+    <td align="center"><img src="docs/screenshots/resumo.png" width="200" alt="Resumo do treino com duração, volume, evolução e recordes pessoais"><br><b>Resumo e evolução</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/busca.png" width="200" alt="Busca de alimentos com calorias e macronutrientes por 100 gramas"><br><b>Busca de alimentos</b></td>
+    <td align="center"><img src="docs/screenshots/plano.png" width="200" alt="Dieta sugerida com calorias, macronutrientes e distribuição nas refeições"><br><b>Plano calculado</b></td>
+    <td align="center"><img src="docs/screenshots/temas.gif" width="200" alt="Troca entre as cinco cores do app e entre os modos claro e escuro"><br><b>Temas personalizáveis</b></td>
+  </tr>
+</table>
+
+<sub>Imagens de uma conta de demonstração, com dados de exemplo.</sub>
+
 ---
 
 ## Sobre o projeto
