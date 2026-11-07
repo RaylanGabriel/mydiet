@@ -124,6 +124,6 @@ android/      Projeto nativo do Capacitor
 
 ## Autor
 
-Feito por **Raylan Miranda** · [GitHub](https://github.com/RaylanGabriel)
+Feito por **Raylan Miranda** · [LinkedIn](https://www.linkedin.com/in/raylan-miranda/) · [GitHub](https://github.com/RaylanGabriel)
 
 Desenvolvido com apoio de ferramentas de IA, como v0 e Claude Code.
