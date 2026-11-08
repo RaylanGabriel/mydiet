@@ -40,8 +40,15 @@ export default function PlanoPage() {
 
   const handleSubmit = async (data: BodyData) => {
     const pesoAnterior = profile?.peso_kg != null ? Number(profile.peso_kg) : null
+    const { prefere_fullbody, ...rest } = data
     try {
-      await updateProfile({ ...data, objetivo: primaryObjetivo(data.objetivos) })
+      await updateProfile({
+        ...rest,
+        objetivo: primaryObjetivo(data.objetivos),
+        // Só envia a coluna se ela já existe (script 010) ou se a pessoa marcou a opção,
+        // para não quebrar o salvamento antes de o script ser executado.
+        ...(prefere_fullbody || (profile && 'prefere_fullbody' in profile) ? { prefere_fullbody } : {}),
+      })
       // Peso alterado pelo formulário também entra no histórico de pesagens
       if (pesoAnterior !== data.peso_kg) {
         logWeight(data.peso_kg, { updateProfile: false }).catch(() => {
@@ -50,6 +57,11 @@ export default function PlanoPage() {
       }
     } catch (error) {
       const message = String((error as { message?: string })?.message ?? '')
+      if (message.includes('prefere_fullbody')) {
+        const friendly = new Error('Para salvar a opção full body, execute o script scripts/010_plan_fullbody.sql no SQL Editor do Supabase.')
+        friendly.name = 'PlanSaveError'
+        throw friendly
+      }
       if (message.includes('objetivos')) {
         const friendly = new Error('Para salvar mais de um objetivo, execute o script scripts/006_plan_multiple_goals.sql no SQL Editor do Supabase.')
         friendly.name = 'PlanSaveError'

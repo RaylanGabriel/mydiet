@@ -15,6 +15,8 @@ export interface BodyData {
   objetivos: Objetivo[]
   experiencia_treino: Experiencia
   dias_treino_semana: number
+  /** Todos os treinos de musculação são de corpo inteiro */
+  prefere_fullbody: boolean
 }
 
 export const NIVEL_ATIVIDADE_OPTIONS: { value: NivelAtividade; label: string; description: string; fator: number }[] = [
@@ -98,6 +100,7 @@ export function getBodyData(profile: Profile | null | undefined): BodyData | nul
     objetivos: OBJETIVO_ORDER.filter((o) => objetivos.includes(o)),
     experiencia_treino,
     dias_treino_semana,
+    prefere_fullbody: profile.prefere_fullbody === true,
   }
 }
 
@@ -419,6 +422,19 @@ const TEMPLATES: Record<string, Template> = {
     ],
     core: s('Perdigueiro', 'Abdominal supra'),
   },
+  fullC: {
+    foco: 'Corpo inteiro',
+    slots: [
+      s('Agachamento goblet', 'Afundo com halteres'),
+      s('Supino máquina', 'Supino inclinado com halteres'),
+      s('Remada unilateral com halter'),
+      s('Elevação pélvica'),
+      s('Desenvolvimento máquina', 'Desenvolvimento com halteres'),
+      s('Cadeira extensora'),
+      s('Rosca martelo'),
+    ],
+    core: s('Prancha lateral'),
+  },
   upper: {
     foco: 'Membros superiores',
     slots: [
@@ -510,7 +526,25 @@ function pick(slot: Slot, nivel: Nivel) {
   return slot.basico
 }
 
-function chooseSplit(strengthDays: number, experiencia: Experiencia) {
+function chooseFullBodySplit(strengthDays: number) {
+  switch (strengthDays) {
+    case 1:
+      return { divisao: 'Full body', keys: ['fullA'], descricao: 'Treino de corpo inteiro: todos os músculos são estimulados na sessão da semana.' }
+    case 2:
+      return { divisao: 'Full body (AB)', keys: ['fullA', 'fullB'], descricao: 'Corpo inteiro em cada sessão: cada músculo é treinado 2x por semana, a frequência com melhores resultados.' }
+    case 3:
+      return { divisao: 'Full body (ABC)', keys: ['fullA', 'fullB', 'fullC'], descricao: 'Corpo inteiro em todas as sessões, com três treinos diferentes: cada músculo é treinado 3x por semana com variedade de exercícios.' }
+    case 4:
+      return { divisao: 'Full body (AB 2x)', keys: ['fullA', 'fullB'], descricao: 'Corpo inteiro em todas as sessões, alternando dois treinos: cada músculo é treinado 4x por semana.' }
+    case 5:
+      return { divisao: 'Full body (ABC rotativo)', keys: ['fullA', 'fullB', 'fullC'], descricao: 'Corpo inteiro em todas as sessões, alternando três treinos. Com essa frequência, controle a carga e a proximidade da falha para conseguir se recuperar entre os dias.' }
+    default:
+      return { divisao: 'Full body (ABC 2x)', keys: ['fullA', 'fullB', 'fullC'], descricao: 'Corpo inteiro em todas as sessões, repetindo três treinos. Com essa frequência, controle a carga e a proximidade da falha para conseguir se recuperar entre os dias.' }
+  }
+}
+
+function chooseSplit(strengthDays: number, experiencia: Experiencia, fullbody: boolean) {
+  if (fullbody) return chooseFullBodySplit(strengthDays)
   switch (strengthDays) {
     case 1:
       return { divisao: 'Full body', keys: ['fullA'], descricao: 'Com 1 dia de musculação, o treino de corpo inteiro garante que todos os músculos sejam estimulados na semana.' }
@@ -580,7 +614,10 @@ export function calculateTrainingPlan(d: BodyData): TrainingPlan {
     motivos.push(`Dos ${dias} dias, ${strengthDays} são de musculação e ${extraDays} de ${tipoExtra}. ${razao}.`)
   }
 
-  const split = chooseSplit(strengthDays, d.experiencia_treino)
+  const split = chooseSplit(strengthDays, d.experiencia_treino, d.prefere_fullbody)
+  if (d.prefere_fullbody) {
+    motivos.push('Você escolheu treinar full body, então todos os treinos de musculação trabalham o corpo inteiro.')
+  }
 
   // 3) Prescrição (séries x repetições x descanso)
   let prescricao: TrainingPlan['prescricao']

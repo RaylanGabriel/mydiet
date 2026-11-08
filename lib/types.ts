@@ -35,6 +35,8 @@ export interface Profile {
   objetivos?: ('emagrecer' | 'manter' | 'ganhar_massa' | 'condicionamento')[] | null
   experiencia_treino: 'iniciante' | 'intermediario' | 'avancado' | null
   dias_treino_semana: number | null
+  /** Quer que todos os treinos do plano sejam de corpo inteiro. Pode não existir antes do script 010. */
+  prefere_fullbody?: boolean | null
   created_at: string
   updated_at: string
 }

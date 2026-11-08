@@ -82,6 +82,7 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
   const combinacao = describeCombination(objetivos)
   const [experiencia, setExperiencia] = useState<Experiencia | null>(initial?.experiencia_treino ?? null)
   const [dias, setDias] = useState<number | null>(initial?.dias_treino_semana ?? null)
+  const [fullbody, setFullbody] = useState(initial?.prefere_fullbody === true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -120,6 +121,7 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
         objetivos,
         experiencia_treino: experiencia,
         dias_treino_semana: dias,
+        prefere_fullbody: fullbody,
       })
     } catch (err) {
       setError(
@@ -232,6 +234,17 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
             </button>
           ))}
         </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-sm font-medium text-foreground">Tipo de treino</legend>
+        <OptionButton
+          selected={fullbody}
+          onClick={() => setFullbody((v) => !v)}
+          title="Quero treinar full body"
+          description="Todos os treinos trabalham o corpo inteiro, nos dias que você escolheu acima"
+          multiple
+        />
       </fieldset>
 
       {error && (
