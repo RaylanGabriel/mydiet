@@ -62,7 +62,7 @@ export default function CadastroPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl">Criar conta</CardTitle>
             <CardDescription>
-              Preencha os dados abaixo para comecar
+              Preencha os dados abaixo para começar
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -121,7 +121,7 @@ export default function CadastroPage() {
             </form>
 
             <p className="text-center text-sm text-muted-foreground mt-6">
-              Ja tem uma conta?{' '}
+              Já tem uma conta?{' '}
               <Link href="/auth/login" className="text-primary hover:underline font-medium">
                 Entrar
               </Link>
