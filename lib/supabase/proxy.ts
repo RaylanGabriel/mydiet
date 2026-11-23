@@ -46,10 +46,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect to dashboard if logged in user tries to access auth pages
+  // Redirect to dashboard if logged in user tries to access auth pages.
+  // /auth/confirm e /auth/redefinir-senha ficam de fora: o link do email de
+  // recuperação cria uma sessão e o usuário precisa chegar à tela de nova senha.
+  const path = request.nextUrl.pathname
   if (
     user &&
-    (request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname === '/')
+    path !== '/auth/confirm' &&
+    path !== '/auth/redefinir-senha' &&
+    (path.startsWith('/auth') || path === '/')
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
