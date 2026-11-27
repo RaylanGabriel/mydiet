@@ -20,6 +20,11 @@ interface FoodAutocompleteProps {
   onValuesChange: (values: { calorias: number; proteina: number; carboidratos: number; gordura: number }) => void
   placeholder?: string
   className?: string
+  /**
+   * Alimento já escolhido (edição de um item salvo): com ele, mudar a
+   * quantidade recalcula os macros na mesma proporção.
+   */
+  initialFood?: CommonFood | null
 }
 
 /** Com menos resultados locais que isso, a busca na internet roda sozinha. */
@@ -41,6 +46,40 @@ const normalize = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+/** Primeiro número da quantidade ("150g" → 150, "1 unidade" → 1). Sem número, vale 100. */
+export function parseQuantityToGrams(qty: string): number {
+  const match = qty.replace(',', '.').match(/(\d+(?:\.\d+)?)/)
+  return match ? parseFloat(match[1]) : 100
+}
+
+/**
+ * Reconstrói a base "por 100" de um item salvo a partir dos valores e da
+ * quantidade dele, para recalcular quando a quantidade mudar.
+ */
+export function foodFromSavedItem(item: {
+  nome: string
+  quantidade: string
+  calorias: number
+  proteina: number
+  carboidratos: number
+  gordura: number
+}): CommonFood | null {
+  const q = parseQuantityToGrams(item.quantidade)
+  if (!item.nome.trim() || q <= 0) return null
+  const f = 100 / q
+  return {
+    id: `salvo-${item.nome}`,
+    nome: item.nome,
+    quantidade_padrao: item.quantidade,
+    calorias: item.calorias * f,
+    proteina: item.proteina * f,
+    carboidratos: item.carboidratos * f,
+    gordura: item.gordura * f,
+    categoria: '',
+    source: 'supabase',
+  }
+}
+
 const displayName = (food: CommonFood) => (food.marca ? `${food.nome} (${food.marca})` : food.nome)
 
 async function fetchRemote(q: string): Promise<CommonFood[]> {
@@ -58,9 +97,12 @@ export function FoodAutocomplete({
   onValuesChange,
   placeholder = 'Digite o nome do alimento...',
   className,
+  initialFood = null,
 }: FoodAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedFood, setSelectedFood] = useState<CommonFood | null>(null)
+  const [selectedFood, setSelectedFood] = useState<CommonFood | null>(initialFood)
+  // Na edição, o primeiro cálculo não deve reescrever os valores salvos
+  const skipFirstCalc = useRef(initialFood != null)
   const [forceRemote, setForceRemote] = useState(false)
   const [ai, setAi] = useState<{ query: string; foods: CommonFood[]; fonte: 'google' | 'ia'; error?: string } | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -117,11 +159,6 @@ export function FoodAutocomplete({
     setForceRemote(false)
   }, [debounced])
 
-  const parseQuantityToGrams = (qty: string): number => {
-    const match = qty.replace(',', '.').match(/(\d+(?:\.\d+)?)/)
-    return match ? parseFloat(match[1]) : 100
-  }
-
   const calculateValues = (food: CommonFood, grams: number) => {
     const multiplier = grams / 100
     return {
@@ -133,6 +170,10 @@ export function FoodAutocomplete({
   }
 
   useEffect(() => {
+    if (skipFirstCalc.current) {
+      skipFirstCalc.current = false
+      return
+    }
     if (selectedFood && quantidade) {
       onValuesChange(calculateValues(selectedFood, parseQuantityToGrams(quantidade)))
     }

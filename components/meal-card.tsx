@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Clock, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { Check, ChevronDown, ChevronUp, Clock, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -32,13 +33,14 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const totalCalories = meal.items.reduce((acc, item) => acc + item.calorias, 0)
+  const totalCalories = Math.round(meal.items.reduce((acc, item) => acc + item.calorias, 0))
+  const totalProteina = Math.round(meal.items.reduce((acc, item) => acc + Number(item.proteina ?? 0), 0))
 
   const mealTypeLabels: Record<string, string> = {
-    cafe_manha: 'Cafe da Manha',
-    almoco: 'Almoco',
+    cafe_manha: 'Café da Manhã',
+    almoco: 'Almoço',
     lanche_tarde: 'Lanche da Tarde',
-    cafe_tarde: 'Cafe da Tarde',
+    cafe_tarde: 'Café da Tarde',
     janta: 'Janta',
   }
 
@@ -46,7 +48,7 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
     return time.slice(0, 5)
   }
 
-  const mealName = meal.nome || mealTypeLabels[meal.tipo] || 'Refeicao'
+  const mealName = meal.nome || mealTypeLabels[meal.tipo] || 'Refeição'
 
   const handleDelete = async () => {
     if (deleting) return
@@ -54,12 +56,12 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
     try {
       await onDelete(meal.id)
       setConfirmOpen(false)
-      toast.success(`${mealName} excluida`, {
+      toast.success(`${mealName} excluída`, {
         description: `${meal.items.length} ${meal.items.length === 1 ? 'item removido' : 'itens removidos'} do dia.`,
       })
     } catch (error) {
       console.error('Error deleting meal:', error)
-      toast.error('Nao foi possivel excluir a refeicao', {
+      toast.error('Não foi possível excluir a refeição', {
         description: 'Tente novamente em instantes.',
       })
       setDeleting(false)
@@ -87,7 +89,7 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
             {meal.nome || mealTypeLabels[meal.tipo]}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {meal.items.length} {meal.items.length === 1 ? 'item' : 'itens'} • {totalCalories} kcal
+            {meal.items.length} {meal.items.length === 1 ? 'item' : 'itens'} • {totalCalories} kcal • {totalProteina} g prot.
           </p>
         </div>
 
@@ -120,16 +122,28 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
           </div>
 
           <div className="flex gap-2 mt-4">
-            {!meal.concluida && (
+            {meal.concluida ? (
+              <Button onClick={() => onToggleComplete(meal.id, false)} className="flex-1" variant="secondary">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Desmarcar
+              </Button>
+            ) : (
               <Button
                 onClick={() => onToggleComplete(meal.id, true)}
                 className="flex-1"
                 variant="secondary"
               >
                 <Check className="w-4 h-4 mr-2" />
-                Marcar como concluida
+                Concluída
               </Button>
             )}
+
+            <Button asChild variant="outline" className="flex-1">
+              <Link href={`/adicionar?editar=${meal.id}`}>
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar
+              </Link>
+            </Button>
             
             <AlertDialog
               open={confirmOpen}
@@ -138,21 +152,15 @@ export function MealCard({ meal, onToggleComplete, onSelectOption, onDelete }: M
               }}
             >
               <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={meal.concluida ? "default" : "icon"}
-                  className={cn(meal.concluida && "flex-1")}
-                  aria-label="Excluir refeicao"
-                >
+                <Button variant="outline" size="icon" aria-label="Excluir refeição">
                   <Trash2 className="w-4 h-4" />
-                  {meal.concluida && <span className="ml-2">Excluir</span>}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Excluir {mealName}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    A refeicao e {meal.items.length === 1 ? 'seu item' : `seus ${meal.items.length} itens`} ({totalCalories} kcal) serao removidos. Essa acao nao pode ser desfeita.
+                    A refeição e {meal.items.length === 1 ? 'seu item' : `seus ${meal.items.length} itens`} ({totalCalories} kcal) serão removidos. Essa ação não pode ser desfeita.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

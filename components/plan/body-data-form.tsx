@@ -9,6 +9,8 @@ import {
   EXPERIENCIA_OPTIONS,
   NIVEL_ATIVIDADE_OPTIONS,
   OBJETIVO_OPTIONS,
+  TEMPO_TREINO_OPTIONS,
+  TEMPO_TREINO_PADRAO,
   describeCombination,
   toggleObjetivo,
   type BodyData,
@@ -83,6 +85,7 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
   const [experiencia, setExperiencia] = useState<Experiencia | null>(initial?.experiencia_treino ?? null)
   const [dias, setDias] = useState<number | null>(initial?.dias_treino_semana ?? null)
   const [fullbody, setFullbody] = useState(initial?.prefere_fullbody === true)
+  const [tempo, setTempo] = useState<number>(initial?.tempo_treino_min || TEMPO_TREINO_PADRAO)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -122,6 +125,7 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
         experiencia_treino: experiencia,
         dias_treino_semana: dias,
         prefere_fullbody: fullbody,
+        tempo_treino_min: tempo,
       })
     } catch (err) {
       setError(
@@ -231,6 +235,31 @@ export function BodyDataForm({ initial, onSubmit, onCancel }: BodyDataFormProps)
               )}
             >
               {n}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-medium text-foreground">Quanto tempo você tem por treino?</legend>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Conta tudo: aquecimento, descansos e cardio. O treino é montado para caber nesse tempo.
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {TEMPO_TREINO_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setTempo(o.value)}
+              aria-pressed={tempo === o.value}
+              className={cn(
+                'flex h-11 items-center justify-center rounded-xl border text-sm font-semibold transition-colors',
+                tempo === o.value
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-card-foreground hover:border-muted-foreground/40',
+              )}
+            >
+              {o.label}
             </button>
           ))}
         </div>

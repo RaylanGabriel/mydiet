@@ -102,18 +102,54 @@ export const GRUPOS_MUSCULARES = [
 
 export const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as const
 
-const SEGUNDOS_POR_SERIE = 40
+// ---- Duração estimada (a mesma conta no plano e nos treinos salvos) ----
+
+export const AQUECIMENTO_MIN = 5
+/** Execução de uma série com repetições */
+const SEG_POR_SERIE = 40
+/** Preparar o aparelho / trocar de exercício */
+const SEG_TRANSICAO = 45
+
+export interface DurationItem {
+  series: number
+  repeticoes: string
+  descanso_segundos: number
+  /** Cardio: a duração vem do campo de repetições (ex.: "20 min" ou só "20") */
+  cardio: boolean
+}
+
+/** Média de uma faixa ("15-20 min" → 17,5) ou o primeiro número */
+export function rangeAvg(text: string): number {
+  const nums = (text.replace(',', '.').match(/\d+(?:\.\d+)?/g) ?? []).map(Number)
+  if (nums.length === 0) return 0
+  return nums.length > 1 && /\d\s*-\s*\d/.test(text) ? (nums[0] + nums[1]) / 2 : nums[0]
+}
+
+function itemSeconds(ex: DurationItem): number {
+  const r = ex.repeticoes
+  let trabalho: number
+  if (ex.cardio || /min/.test(r)) trabalho = rangeAvg(r) * 60
+  else if (/\d\s*s\b/.test(r)) trabalho = rangeAvg(r) * (/cada lado/.test(r) ? 2 : 1)
+  else trabalho = SEG_POR_SERIE
+  // Sem descanso depois da última série
+  return ex.series * trabalho + Math.max(0, ex.series - 1) * ex.descanso_segundos + SEG_TRANSICAO
+}
+
+/** Minutos da sessão, incluindo 5 min de aquecimento */
+export function estimateMinutes(items: DurationItem[]): number {
+  if (items.length === 0) return 0
+  return Math.round(AQUECIMENTO_MIN + items.reduce((sum, ex) => sum + itemSeconds(ex), 0) / 60)
+}
 
 export function estimateWorkoutMinutes(exercises: WorkoutExercise[]) {
-  const totalSeconds = exercises.reduce((sum, ex) => {
-    // Cardio: a duração está no próprio campo (ex.: "20 min")
-    if (ex.exercise?.grupo_muscular === 'Cardio') {
-      const min = Number((ex.repeticoes.replace(',', '.').match(/(\d+(?:\.\d+)?)/) ?? [])[1]) || 0
-      return sum + ex.series * (min * 60 + ex.descanso_segundos)
-    }
-    return sum + ex.series * (SEGUNDOS_POR_SERIE + ex.descanso_segundos)
-  }, 0)
-  return Math.max(0, Math.round(totalSeconds / 60))
+  return estimateMinutes(
+    exercises.map((ex) => ({
+      series: ex.series,
+      repeticoes: ex.repeticoes,
+      descanso_segundos: ex.descanso_segundos,
+      cardio: ex.exercise?.grupo_muscular === 'Cardio',
+    })),
+  )
 }
 
 export function formatDuration(totalSeconds: number) {

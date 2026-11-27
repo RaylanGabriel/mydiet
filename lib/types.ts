@@ -37,6 +37,8 @@ export interface Profile {
   dias_treino_semana: number | null
   /** Quer que todos os treinos do plano sejam de corpo inteiro. Pode não existir antes do script 010. */
   prefere_fullbody?: boolean | null
+  /** Minutos disponíveis por treino. Pode não existir antes do script 011. */
+  tempo_treino_min?: number | null
   created_at: string
   updated_at: string
 }

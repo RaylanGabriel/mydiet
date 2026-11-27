@@ -18,12 +18,14 @@ import {
   type Workout,
 } from '@/lib/workout-types'
 import { cn } from '@/lib/utils'
+import { useActiveWorkout } from '@/lib/active-workout'
 
 export default function TreinosPage() {
   const router = useRouter()
   const { workouts, isLoading, createWorkout } = useWorkouts()
   const { sessions } = useWorkoutSessions()
   const [createOpen, setCreateOpen] = useState(false)
+  const active = useActiveWorkout()
 
   const today = new Date().getDay()
   const todayWorkout = workouts.find((w) => w.dias_semana?.includes(today))
@@ -61,7 +63,7 @@ export default function TreinosPage() {
                 disabled={todayWorkout.workout_exercises.length === 0}
               >
                 <Play className="h-4 w-4" />
-                Iniciar
+                {active?.workoutId === todayWorkout.id ? 'Continuar' : 'Iniciar'}
               </Button>
             </div>
           )}
@@ -133,6 +135,7 @@ function WorkoutCard({ workout, isToday }: { workout: Workout; isToday: boolean 
   const groups = muscleGroupsOf(exercises)
   const minutes = estimateWorkoutMinutes(exercises)
   const letter = workoutLetter(workout.nome)
+  const emAndamento = useActiveWorkout()?.workoutId === workout.id
 
   return (
     <div
@@ -203,7 +206,7 @@ function WorkoutCard({ workout, isToday }: { workout: Workout; isToday: boolean 
           <Button asChild className="flex-1">
             <Link href={`/treinos/${workout.id}/executar`}>
               <Play className="h-4 w-4" />
-              Iniciar
+              {emAndamento ? 'Continuar' : 'Iniciar'}
             </Link>
           </Button>
         ) : (
