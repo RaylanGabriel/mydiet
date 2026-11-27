@@ -13,6 +13,7 @@ import { WorkoutExerciseEditor } from '@/components/workouts/workout-exercise-ed
 import { DaysOfWeekPicker } from '@/components/workouts/days-of-week-picker'
 import { CoverPicker } from '@/components/workouts/cover-picker'
 import { estimateWorkoutMinutes } from '@/lib/workout-types'
+import { useActiveWorkout } from '@/lib/active-workout'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -42,6 +43,7 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const emAndamento = useActiveWorkout()?.workoutId === id
 
   if (isLoading) {
     return (
@@ -203,7 +205,7 @@ export default function EditarTreinoPage({ params }: { params: Promise<{ id: str
             <Button asChild size="lg" className="w-full shadow-lg">
               <Link href={`/treinos/${workout.id}/executar`}>
                 <Play className="h-5 w-5" />
-                Iniciar treino
+                {emAndamento ? 'Continuar treino' : 'Iniciar treino'}
               </Link>
             </Button>
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -33,6 +33,7 @@ import { SwapExerciseSheet } from '@/components/workouts/swap-exercise-sheet'
 import { CARDIO_METRIC_INFO, cardioHint, cardioMetrics, formatCardio, parseMinutes, type CardioMetric } from '@/lib/cardio'
 import { exerciseKind, formatSeconds, parseSeconds, type ExerciseKind } from '@/lib/exercise-kind'
 import { cn } from '@/lib/utils'
+import { clearActiveWorkout, setActiveWorkout } from '@/lib/active-workout'
 
 interface SetState {
   reps: string
@@ -52,6 +53,9 @@ interface RunState {
   sets: Record<string, SetState[]>
   /** Trocas feitas só neste treino (máquina ocupada): id do item do treino → exercício usado */
   swaps?: Record<string, Exercise>
+  /** Descanso em andamento, salvo para continuar ao voltar de outra aba */
+  restEndsAt?: number | null
+  restTotal?: number
 }
 
 const str = (n: number | null | undefined) => (n == null ? '' : String(Number(n)))
@@ -119,7 +123,14 @@ function loadState(workout: Workout): RunState {
         if (parsed.sets[id]) fresh.sets[id] = parsed.sets[id]
         if (parsed.swaps?.[id]) swaps[id] = parsed.swaps[id]
       }
-      return { startedAt: parsed.startedAt, sets: fresh.sets, swaps }
+      const restAtivo = parsed.restEndsAt && parsed.restEndsAt > Date.now()
+      return {
+        startedAt: parsed.startedAt,
+        sets: fresh.sets,
+        swaps,
+        restEndsAt: restAtivo ? parsed.restEndsAt : null,
+        restTotal: restAtivo ? parsed.restTotal : 0,
+      }
     }
   } catch {
     // ignore corrupted saved progress
@@ -171,6 +182,8 @@ export function WorkoutRunner({ workout }: { workout: Workout }) {
   const [now, setNow] = useState(() => Date.now())
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null)
   const [restTotal, setRestTotal] = useState(0)
+  // Estável: o RestTimer usa no efeito que fecha o aviso sozinho depois de 4 s
+  const skipRest = useCallback(() => setRestEndsAt(null), [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmExit, setConfirmExit] = useState(false)
@@ -178,12 +191,30 @@ export function WorkoutRunner({ workout }: { workout: Workout }) {
   const recordToastRef = useRef(new Set<string>())
 
   useEffect(() => {
-    setState(loadState(workout))
+    const loaded = loadState(workout)
+    setState(loaded)
+    setRestEndsAt(loaded.restEndsAt ?? null)
+    setRestTotal(loaded.restTotal ?? 0)
   }, [workout])
 
+  // Salva o progresso e mantém a barra de "treino em andamento" (visível nas outras abas) atualizada
   useEffect(() => {
-    if (state && !summary) localStorage.setItem(storageKey(workout.id), JSON.stringify(state))
-  }, [state, workout.id, summary])
+    if (!state || summary) return
+    try {
+      localStorage.setItem(storageKey(workout.id), JSON.stringify({ ...state, restEndsAt, restTotal }))
+    } catch {
+      // Sem armazenamento local: o treino segue, só não sobrevive a recarregar a página
+    }
+    const all = Object.values(state.sets).flat()
+    setActiveWorkout({
+      workoutId: workout.id,
+      nome: workout.nome,
+      startedAt: state.startedAt,
+      doneCount: all.filter((x) => x.done).length,
+      totalCount: all.length,
+      restEndsAt,
+    })
+  }, [state, workout.id, workout.nome, summary, restEndsAt, restTotal])
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000)
@@ -372,6 +403,7 @@ export function WorkoutRunner({ workout }: { workout: Workout }) {
         sets: completed,
       })
       localStorage.removeItem(storageKey(workout.id))
+      clearActiveWorkout(workout.id)
       setRestEndsAt(null)
       setSummary(data)
       window.scrollTo({ top: 0 })
@@ -387,6 +419,7 @@ export function WorkoutRunner({ workout }: { workout: Workout }) {
 
   const handleDiscard = () => {
     localStorage.removeItem(storageKey(workout.id))
+    clearActiveWorkout(workout.id)
     toast('Treino descartado.')
     router.push(`/treinos/${workout.id}`)
   }
@@ -475,7 +508,7 @@ export function WorkoutRunner({ workout }: { workout: Workout }) {
             setRestEndsAt((end) => (end ?? Date.now()) + seconds * 1000)
             setRestTotal((t) => t + seconds)
           }}
-          onSkip={() => setRestEndsAt(null)}
+          onSkip={skipRest}
         />
       )}
 

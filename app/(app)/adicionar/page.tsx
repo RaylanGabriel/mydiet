@@ -1,32 +1,37 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { toLocalDateString } from '@/lib/date'
-import { createClient } from '@/lib/supabase/client'
-import { getUserId } from '@/lib/supabase/get-user-id'
+import { formatShortDate, toLocalDateString } from '@/lib/date'
+import { fetchMeal, saveMeal } from '@/hooks/use-meals'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
-import { FoodAutocomplete } from '@/components/food-autocomplete'
+import { FoodAutocomplete, foodFromSavedItem } from '@/components/food-autocomplete'
 import { FoodPhotoScanner, type DetectedFood } from '@/components/food-photo-scanner'
 import { DrinkPicker, type DrinkItem } from '@/components/drink-picker'
 import { ArrowLeft, BookOpen, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import type { CommonFood, MealType } from '@/lib/types'
 
-const mealTypes = [
-  { value: 'cafe_manha', label: 'Cafe da Manha', defaultTime: '09:00' },
-  { value: 'almoco', label: 'Almoco', defaultTime: '12:00' },
+const mealTypes: { value: MealType; label: string; defaultTime: string }[] = [
+  { value: 'cafe_manha', label: 'Café da Manhã', defaultTime: '09:00' },
+  { value: 'almoco', label: 'Almoço', defaultTime: '12:00' },
   { value: 'lanche_tarde', label: 'Lanche da Tarde', defaultTime: '15:00' },
-  { value: 'cafe_tarde', label: 'Cafe da Tarde', defaultTime: '18:00' },
+  { value: 'cafe_tarde', label: 'Café da Tarde', defaultTime: '18:00' },
   { value: 'janta', label: 'Janta', defaultTime: '21:00' },
 ]
 
 interface MealItemInput {
+  /** Chave local do formulário */
   id: string
+  /** id em `meal_items`, quando o item já estava salvo */
+  dbId?: string
+  /** Base para recalcular os macros de um item salvo ao mudar a quantidade */
+  initialFood?: CommonFood | null
   nome: string
   quantidade: string
   calorias: number
@@ -35,31 +40,98 @@ interface MealItemInput {
   gordura: number
 }
 
+const emptyItem = (): MealItemInput => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  nome: '',
+  quantidade: '100g',
+  calorias: 0,
+  proteina: 0,
+  carboidratos: 0,
+  gordura: 0,
+})
+
+const isDate = (v: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
+
 export default function AdicionarPage() {
+  // useSearchParams precisa de Suspense no App Router
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center">
+          <Spinner className="h-8 w-8" />
+        </div>
+      }
+    >
+      <MealForm />
+    </Suspense>
+  )
+}
+
+function MealForm() {
   const router = useRouter()
+  const params = useSearchParams()
+  const editId = params.get('editar')
+  const today = toLocalDateString()
+  const dataParam = params.get('data')
+  const [data, setData] = useState(isDate(dataParam) && dataParam <= today ? dataParam : today)
+
   const [loading, setLoading] = useState(false)
+  const [loadingMeal, setLoadingMeal] = useState(!!editId)
   // Trava síncrona: impede envios duplicados por cliques rápidos antes do re-render
   const submittingRef = useRef(false)
-  const [selectedType, setSelectedType] = useState(mealTypes[0].value)
+  const [selectedType, setSelectedType] = useState<MealType>(mealTypes[0].value)
   const [horario, setHorario] = useState(mealTypes[0].defaultTime)
-  const [items, setItems] = useState<MealItemInput[]>([
-    { id: '1', nome: '', quantidade: '100g', calorias: 0, proteina: 0, carboidratos: 0, gordura: 0 }
-  ])
+  const [items, setItems] = useState<MealItemInput[]>([emptyItem()])
 
-  const handleTypeChange = (type: string) => {
-    setSelectedType(type)
-    const mealType = mealTypes.find(t => t.value === type)
-    if (mealType) {
-      setHorario(mealType.defaultTime)
+  // Edição: carrega a refeição salva no formulário
+  useEffect(() => {
+    if (!editId) return
+    let cancelled = false
+    fetchMeal(editId)
+      .then((meal) => {
+        if (cancelled) return
+        if (!meal) {
+          toast.error('Refeição não encontrada')
+          router.replace('/dashboard')
+          return
+        }
+        setData(meal.data)
+        setSelectedType(meal.tipo)
+        setHorario(meal.horario.slice(0, 5))
+        setItems(
+          meal.items.length > 0
+            ? meal.items.map((item) => {
+                const values = {
+                  nome: item.nome,
+                  quantidade: item.quantidade,
+                  calorias: item.calorias,
+                  proteina: Number(item.proteina ?? 0),
+                  carboidratos: Number(item.carboidratos ?? 0),
+                  gordura: Number(item.gordura ?? 0),
+                }
+                return { id: item.id, dbId: item.id, initialFood: foodFromSavedItem(values), ...values }
+              })
+            : [emptyItem()],
+        )
+        setLoadingMeal(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        toast.error('Não foi possível abrir a refeição')
+        router.replace('/dashboard')
+      })
+    return () => {
+      cancelled = true
     }
+  }, [editId, router])
+
+  const handleTypeChange = (type: MealType) => {
+    setSelectedType(type)
+    const mealType = mealTypes.find((t) => t.value === type)
+    if (mealType && !editId) setHorario(mealType.defaultTime)
   }
 
-  const addItem = () => {
-    setItems([
-      ...items,
-      { id: Date.now().toString(), nome: '', quantidade: '100g', calorias: 0, proteina: 0, carboidratos: 0, gordura: 0 }
-    ])
-  }
+  const addItem = () => setItems((prev) => [...prev, emptyItem()])
 
   const addDrink = (drink: DrinkItem) => {
     setItems((prev) => [
@@ -91,22 +163,30 @@ export default function AdicionarPage() {
   }
 
   const removeItem = (id: string) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id))
-    }
+    setItems((prev) => (prev.length > 1 ? prev.filter((item) => item.id !== id) : prev))
   }
 
+  // Forma funcional: o autocomplete dispara várias atualizações seguidas
   const updateItem = (id: string, field: keyof MealItemInput, value: string | number) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ))
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
-  const updateItemValues = (id: string, values: { calorias: number; proteina: number; carboidratos: number; gordura: number }) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, ...values } : item
-    ))
+  const updateItemValues = (
+    id: string,
+    values: { calorias: number; proteina: number; carboidratos: number; gordura: number },
+  ) => {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...values } : item)))
   }
+
+  const totals = items.reduce(
+    (acc, item) => ({
+      calorias: acc.calorias + (item.calorias || 0),
+      proteina: acc.proteina + (item.proteina || 0),
+      carboidratos: acc.carboidratos + (item.carboidratos || 0),
+      gordura: acc.gordura + (item.gordura || 0),
+    }),
+    { calorias: 0, proteina: 0, carboidratos: 0, gordura: 0 },
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -116,70 +196,42 @@ export default function AdicionarPage() {
 
     let success = false
     try {
-      const supabase = createClient()
-      const userId = await getUserId()
-
-      if (!userId) {
-        router.push('/auth/login')
-        return
-      }
-
-      const today = toLocalDateString()
-      const mealType = mealTypes.find(t => t.value === selectedType)
-
-      // Create meal
-      const { data: meal, error: mealError } = await supabase
-        .from('meals')
-        .insert({
-          user_id: userId,
-          nome: mealType?.label || '',
-          horario: horario,
-          data: today,
-          tipo: selectedType,
-          concluida: false,
-          ordem: mealTypes.findIndex(t => t.value === selectedType),
-        })
-        .select()
-        .single()
-
-      if (mealError) throw mealError
-
-      // Create meal items
-      const validItems = items.filter(item => item.nome.trim() !== '')
-      if (validItems.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('meal_items')
-          .insert(
-            validItems.map((item, index) => ({
-              meal_id: meal.id,
-              user_id: userId,
-              nome: item.nome,
-              quantidade: item.quantidade,
-              calorias: item.calorias,
-              proteina: item.proteina,
-              carboidratos: item.carboidratos,
-              gordura: item.gordura,
-              ordem: index,
-            }))
-          )
-
-        if (itemsError) throw itemsError
-      }
+      const mealType = mealTypes.find((t) => t.value === selectedType)!
+      const validItems = items.filter((item) => item.nome.trim() !== '')
+      await saveMeal({
+        id: editId ?? undefined,
+        data,
+        tipo: selectedType,
+        nome: mealType.label,
+        horario,
+        ordem: mealTypes.findIndex((t) => t.value === selectedType),
+        items: validItems,
+      })
 
       success = true
       const qtd = validItems.length
-      toast.success(`${mealType?.label || 'Refeicao'} adicionada!`, {
-        description:
-          qtd === 0
-            ? undefined
-            : qtd === 1
-              ? `${validItems[0].nome} foi adicionado.`
-              : `${qtd} alimentos foram adicionados.`,
-      })
-      router.push('/dashboard')
+      if (editId) {
+        toast.success(`${mealType.label} atualizada`, {
+          description: `${Math.round(totals.calorias)} kcal no total.`,
+        })
+      } else {
+        toast.success(`${mealType.label} adicionada!`, {
+          description:
+            qtd === 0
+              ? undefined
+              : qtd === 1
+                ? `${validItems[0].nome} foi adicionado.`
+                : `${qtd} alimentos foram adicionados.`,
+        })
+      }
+      router.push(data === today ? '/dashboard' : `/dashboard?data=${data}`)
     } catch (error) {
-      console.error('Error creating meal:', error)
-      toast.error('Nao foi possivel salvar a refeicao', {
+      console.error('Error saving meal:', error)
+      if (error instanceof Error && error.message === 'Sessão expirada') {
+        router.push('/auth/login')
+        return
+      }
+      toast.error('Não foi possível salvar a refeição', {
         description: 'Tente novamente em instantes.',
       })
     } finally {
@@ -191,15 +243,28 @@ export default function AdicionarPage() {
     }
   }
 
+  const backHref = data === today ? '/dashboard' : `/dashboard?data=${data}`
+
+  if (loadingMeal) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="h-8 w-8" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
       <header className="bg-card border-b border-border px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-4">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-lg hover:bg-muted">
+          <Link href={backHref} className="p-2 -ml-2 rounded-lg hover:bg-muted" aria-label="Voltar">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-lg font-semibold">Adicionar Refeicao</h1>
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold">{editId ? 'Editar Refeição' : 'Adicionar Refeição'}</h1>
+            {data !== today && <p className="text-xs text-muted-foreground">{formatShortDate(data, today)}</p>}
+          </div>
           <Link
             href="/tabela"
             className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-muted"
@@ -216,7 +281,7 @@ export default function AdicionarPage() {
           {/* Meal type selection */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Tipo de Refeicao</CardTitle>
+              <CardTitle className="text-base">Tipo de Refeição</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
@@ -237,7 +302,7 @@ export default function AdicionarPage() {
               </div>
 
               <Field className="mt-4">
-                <FieldLabel htmlFor="horario">Horario</FieldLabel>
+                <FieldLabel htmlFor="horario">Horário</FieldLabel>
                 <Input
                   id="horario"
                   type="time"
@@ -254,7 +319,7 @@ export default function AdicionarPage() {
           {/* Meal items */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Itens da Refeicao</CardTitle>
+              <CardTitle className="text-base">Itens da Refeição</CardTitle>
               <Button type="button" variant="ghost" size="sm" onClick={addItem}>
                 <Plus className="w-4 h-4 mr-1" />
                 Adicionar
@@ -272,18 +337,20 @@ export default function AdicionarPage() {
                         type="button"
                         onClick={() => removeItem(item.id)}
                         className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                        aria-label={`Remover item ${index + 1}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
-                  
+
                   <FieldGroup>
                     <Field>
                       <FieldLabel>Nome do alimento ou item</FieldLabel>
                       <FoodAutocomplete
                         value={item.nome}
                         quantidade={item.quantidade}
+                        initialFood={item.initialFood}
                         onChange={(value) => updateItem(item.id, 'nome', value)}
                         onQuantidadeChange={(value) => updateItem(item.id, 'quantidade', value)}
                         onValuesChange={(values) => updateItemValues(item.id, values)}
@@ -314,7 +381,7 @@ export default function AdicionarPage() {
                         />
                       </Field>
                       <Field>
-                        <FieldLabel>Proteina (g)</FieldLabel>
+                        <FieldLabel>Proteína (g)</FieldLabel>
                         <Input
                           type="number"
                           step="0.1"
@@ -352,10 +419,25 @@ export default function AdicionarPage() {
 
           <DrinkPicker onAdd={addDrink} />
 
+          {/* Total da refeição, atualizado a cada mudança */}
+          <div className="grid grid-cols-4 gap-1.5 rounded-xl border border-border bg-card p-3 text-center">
+            {[
+              { label: 'kcal', value: Math.round(totals.calorias) },
+              { label: 'Proteína', value: `${Math.round(totals.proteina)} g` },
+              { label: 'Carbo', value: `${Math.round(totals.carboidratos)} g` },
+              { label: 'Gordura', value: `${Math.round(totals.gordura)} g` },
+            ].map((m) => (
+              <div key={m.label} className="flex flex-col">
+                <span className="text-sm font-bold text-foreground">{m.value}</span>
+                <span className="text-[11px] text-muted-foreground">{m.label}</span>
+              </div>
+            ))}
+          </div>
+
           {/* Submit */}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? <Spinner className="mr-2" /> : null}
-            {loading ? 'Salvando...' : 'Salvar Refeicao'}
+            {loading ? 'Salvando...' : editId ? 'Salvar alterações' : 'Salvar Refeição'}
           </Button>
         </form>
       </main>

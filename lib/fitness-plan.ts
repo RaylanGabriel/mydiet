@@ -1,4 +1,5 @@
 import type { Profile } from './types'
+import { AQUECIMENTO_MIN, estimateMinutes, rangeAvg } from './workout-types'
 
 export type Sexo = NonNullable<Profile['sexo']>
 export type NivelAtividade = NonNullable<Profile['nivel_atividade']>
@@ -17,7 +18,20 @@ export interface BodyData {
   dias_treino_semana: number
   /** Todos os treinos de musculação são de corpo inteiro */
   prefere_fullbody: boolean
+  /** Tempo disponível por sessão, em minutos (inclui aquecimento) */
+  tempo_treino_min: number
 }
+
+export const TEMPO_TREINO_OPTIONS: { value: number; label: string }[] = [
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 h' },
+  { value: 75, label: '1h15' },
+  { value: 90, label: '1h30' },
+  { value: 120, label: '2 h' },
+]
+
+export const TEMPO_TREINO_PADRAO = 60
 
 export const NIVEL_ATIVIDADE_OPTIONS: { value: NivelAtividade; label: string; description: string; fator: number }[] = [
   { value: 'sedentario', label: 'Sedentário', description: 'Pouco ou nenhum exercício', fator: 1.2 },
@@ -101,6 +115,7 @@ export function getBodyData(profile: Profile | null | undefined): BodyData | nul
     experiencia_treino,
     dias_treino_semana,
     prefere_fullbody: profile.prefere_fullbody === true,
+    tempo_treino_min: profile.tempo_treino_min || TEMPO_TREINO_PADRAO,
   }
 }
 
@@ -130,14 +145,6 @@ export function classifyBmi(bmi: number) {
 
 const PERCENTUAL_GORDURA = 0.25
 
-export interface MealSplit {
-  refeicao: string
-  percentual: number
-  calorias: number
-  proteina_g: number
-  exemplo: string
-}
-
 export interface NutritionPlan {
   bmr: number
   tdee: number
@@ -151,57 +158,7 @@ export interface NutritionPlan {
   estrategia: string
   ajusteDescricao: string
   avisos: string[]
-  refeicoes: MealSplit[]
 }
-
-type MealStyle = 'emagrecer' | 'recomposicao' | 'ganhar_massa' | 'manter' | 'condicionamento'
-
-const MEAL_TEMPLATES: { refeicao: string; percentual: number; exemplo: Record<MealStyle, string> }[] = [
-  {
-    refeicao: 'Café da manhã',
-    percentual: 0.25,
-    exemplo: {
-      emagrecer: 'Ovos mexidos + mamão + café sem açúcar',
-      recomposicao: 'Omelete (3 ovos) + pão integral + fruta',
-      ganhar_massa: 'Pão francês + ovos + banana + leite',
-      manter: 'Pão francês + ovo + fruta',
-      condicionamento: 'Pão francês + ovos + banana',
-    },
-  },
-  {
-    refeicao: 'Almoço',
-    percentual: 0.3,
-    exemplo: {
-      emagrecer: 'Frango grelhado + arroz integral + feijão + salada',
-      recomposicao: 'Patinho grelhado + arroz + feijão + salada à vontade',
-      ganhar_massa: 'Carne moída (patinho) + arroz + feijão + batata',
-      manter: 'Frango grelhado + arroz + feijão + legumes',
-      condicionamento: 'Frango grelhado + arroz + feijão + batata',
-    },
-  },
-  {
-    refeicao: 'Lanche da tarde',
-    percentual: 0.15,
-    exemplo: {
-      emagrecer: 'Whey protein + morango',
-      recomposicao: 'Iogurte natural + whey + aveia',
-      ganhar_massa: 'Whey protein + banana + aveia',
-      manter: 'Fruta + iogurte ou whey',
-      condicionamento: 'Banana + whey protein (pré-treino)',
-    },
-  },
-  {
-    refeicao: 'Janta',
-    percentual: 0.3,
-    exemplo: {
-      emagrecer: 'Frango desfiado + batata inglesa + salada',
-      recomposicao: 'Peixe ou frango + batata-doce + legumes',
-      ganhar_massa: 'Lombo suíno + macarrão + legumes',
-      manter: 'Carne moída + arroz + salada',
-      condicionamento: 'Frango + macarrão + legumes',
-    },
-  },
-]
 
 function flags(objetivos: Objetivo[]) {
   return {
@@ -223,22 +180,17 @@ export function calculateNutritionPlan(d: BodyData): NutritionPlan {
   // 1) Estratégia calórica a partir da combinação de objetivos
   let ajuste = 0 // fração sobre o TDEE (negativo = déficit)
   let estrategia = 'Manutenção'
-  let style: MealStyle = 'manter'
   if (E && G) {
     ajuste = -0.1
     estrategia = 'Recomposição corporal'
-    style = 'recomposicao'
   } else if (E) {
     ajuste = C ? -0.15 : -0.2
     estrategia = C ? 'Emagrecimento com condicionamento' : 'Emagrecimento'
-    style = 'emagrecer'
   } else if (G) {
     ajuste = C ? 0.05 : d.experiencia_treino === 'avancado' ? 0.07 : 0.1
     estrategia = C ? 'Ganho de massa com condicionamento' : 'Ganho de massa'
-    style = 'ganhar_massa'
   } else if (C) {
     estrategia = 'Condicionamento'
-    style = 'condicionamento'
   }
 
   // 2) Travas de segurança
@@ -282,14 +234,6 @@ export function calculateNutritionPlan(d: BodyData): NutritionPlan {
         ? `Superávit de ~${pct}% sobre o gasto diário`
         : 'Igual ao gasto diário'
 
-  const refeicoes = MEAL_TEMPLATES.map((m) => ({
-    refeicao: m.refeicao,
-    percentual: m.percentual,
-    calorias: Math.round((calorias * m.percentual) / 10) * 10,
-    proteina_g: Math.round(proteina_g * m.percentual),
-    exemplo: m.exemplo[style],
-  }))
-
   return {
     bmr,
     tdee,
@@ -303,7 +247,6 @@ export function calculateNutritionPlan(d: BodyData): NutritionPlan {
     estrategia,
     ajusteDescricao,
     avisos,
-    refeicoes,
   }
 }
 
@@ -373,6 +316,8 @@ export interface PlanWorkout {
   tipo: 'forca' | 'cardio'
   dias_semana: number[]
   exercicios: PlanExercise[]
+  /** Duração estimada da sessão, com aquecimento */
+  duracao_min: number
 }
 
 export interface TrainingPlan {
@@ -563,6 +508,116 @@ function chooseSplit(strengthDays: number, experiencia: Experiencia, fullbody: b
   }
 }
 
+// ---- Duração da sessão ----
+
+const isCardioName = (nome: string) => PLAN_EXERCISE_CATALOG[nome]?.grupo === 'Cardio'
+
+export function estimateSessionMinutes(exercicios: PlanExercise[]): number {
+  return estimateMinutes(exercicios.map((ex) => ({ ...ex, cardio: isCardioName(ex.nome) })))
+}
+const isCoreName = (nome: string) => PLAN_EXERCISE_CATALOG[nome]?.grupo === 'Abdômen'
+
+/**
+ * Corta o treino até caber no tempo, na ordem que menos prejudica o resultado:
+ * encurta o cardio final, tira a 4ª série, remove acessórios (os últimos da
+ * lista, que são os de menor prioridade), o core, o cardio e por fim encurta
+ * descansos. Depois devolve o que voltar a caber. Retorna o que mudou, para
+ * explicar ao usuário.
+ */
+function fitToTime(original: PlanExercise[], minutos: number, minForca: number, descansoMin: number) {
+  let list = original.map((ex) => ({ ...ex }))
+  const removidos: PlanExercise[] = []
+  const fits = (l = list) => estimateSessionMinutes(l) <= minutos
+  const isForca = (ex: PlanExercise) => !isCardioName(ex.nome) && !isCoreName(ex.nome) && ex.nome !== 'Kettlebell swing'
+  const remove = (ex: PlanExercise) => {
+    list = list.filter((x) => x !== ex)
+    removidos.push(ex)
+  }
+
+  const steps: (() => boolean)[] = [
+    () => {
+      const fin = list.find((ex) => isCardioName(ex.nome))
+      if (!fin || rangeAvg(fin.repeticoes) <= 10) return false
+      fin.repeticoes = /intervalado/.test(fin.repeticoes) ? '10 min intervalado' : '10 min'
+      return true
+    },
+    () => {
+      const alvo = list.filter((ex) => ex.series >= 4)
+      alvo.forEach((ex) => (ex.series = 3))
+      return alvo.length > 0
+    },
+    () => {
+      const kb = list.find((ex) => ex.nome === 'Kettlebell swing')
+      if (kb) remove(kb)
+      return !!kb
+    },
+    () => {
+      const forca = list.filter(isForca)
+      if (forca.length <= minForca) return false
+      remove(forca[forca.length - 1])
+      return true
+    },
+    () => {
+      const core = list.find((ex) => isCoreName(ex.nome))
+      if (core) remove(core)
+      return !!core
+    },
+    () => {
+      const cardio = list.find((ex) => isCardioName(ex.nome))
+      if (cardio) remove(cardio)
+      return !!cardio
+    },
+    () => {
+      const alvo = list.filter((ex) => ex.descanso_segundos > descansoMin)
+      alvo.forEach((ex) => (ex.descanso_segundos = Math.max(descansoMin, ex.descanso_segundos - 15)))
+      return alvo.length > 0
+    },
+    () => {
+      // Último recurso: 2 séries nos acessórios (os 2 primeiros exercícios mantêm 3)
+      const alvo = list.filter(isForca).slice(2).filter((ex) => ex.series > 2)
+      alvo.forEach((ex) => (ex.series = 2))
+      return alvo.length > 0
+    },
+  ]
+
+  for (const step of steps) {
+    while (!fits() && step()) {
+      // repete o mesmo passo enquanto ele ainda puder cortar algo
+    }
+    if (fits()) break
+  }
+
+  // Devolve o que voltar a caber (o último removido primeiro), na posição original
+  for (const ex of [...removidos].reverse()) {
+    const candidata = original.filter((o) => o.nome === ex.nome || list.some((x) => x.nome === o.nome)).map((o) => list.find((x) => x.nome === o.nome) ?? ex)
+    if (fits(candidata)) list = candidata
+  }
+
+  // Explica comparando o resultado com o treino original
+  const mudancas: string[] = []
+  const final = new Map(list.map((ex) => [ex.nome, ex]))
+  const fora = original.filter((ex) => !final.has(ex.nome))
+  const finOriginal = original.find((ex) => isCardioName(ex.nome))
+  if (finOriginal && final.get(finOriginal.nome) && final.get(finOriginal.nome)!.repeticoes !== finOriginal.repeticoes) {
+    mudancas.push('cardio final de 10 min')
+  }
+  if (list.some((ex) => ex.series === 3 && original.find((o) => o.nome === ex.nome)!.series >= 4)) mudancas.push('3 séries por exercício')
+  if (fora.some((ex) => !isCardioName(ex.nome) && !isCoreName(ex.nome))) mudancas.push('menos exercícios acessórios')
+  if (fora.some((ex) => isCoreName(ex.nome))) mudancas.push('sem abdômen no fim (faça em casa ou nos dias de cardio)')
+  if (fora.some((ex) => isCardioName(ex.nome))) mudancas.push('cardio fora do treino')
+  if (list.some((ex) => ex.descanso_segundos < original.find((o) => o.nome === ex.nome)!.descanso_segundos)) mudancas.push('descansos um pouco menores')
+  if (list.some((ex) => ex.series === 2 && original.find((o) => o.nome === ex.nome)!.series > 2)) mudancas.push('2 séries nos acessórios')
+
+  return { exercicios: list, mudancas, cabe: fits() }
+}
+
+/** Texto do cardio dos dias extras, proporcional ao tempo livre da sessão */
+function cardioSessionText(minutosLivres: number, intervalado: boolean) {
+  const m = Math.max(15, Math.min(40, Math.floor(minutosLivres / 5) * 5))
+  if (intervalado) return `${Math.min(25, m)} min (30 s forte / 90 s leve)`
+  return m >= 25 ? `${m - 10}-${m} min ritmo moderado` : `${m} min ritmo moderado`
+}
+
 export function calculateTrainingPlan(d: BodyData): TrainingPlan {
   const { E, G, M, C } = flags(d.objetivos)
   const imc = calculateBmi(d)
@@ -661,8 +716,10 @@ export function calculateTrainingPlan(d: BodyData): TrainingPlan {
         }
       : null
 
-  // 5) Monta os treinos de musculação
+  // 5) Monta os treinos de musculação, já ajustados ao tempo disponível
   const count = SLOT_COUNT[nivel]
+  const cortes = new Set<string>()
+  let naoCabe = false
   const workouts: PlanWorkout[] = split.keys.map((key, i) => {
     const template = TEMPLATES[key]
     const nomes: string[] = []
@@ -687,14 +744,30 @@ export function calculateTrainingPlan(d: BodyData): TrainingPlan {
     })
     if (finisher) exercicios.push({ ...finisher })
 
+    const ajustado = fitToTime(exercicios, d.tempo_treino_min, d.tempo_treino_min <= 30 ? 3 : 4, G ? 60 : 45)
+    ajustado.mudancas.forEach((m) => cortes.add(m))
+    if (!ajustado.cabe) naoCabe = true
+
     return {
       nome: `Treino ${String.fromCharCode(65 + i)}`,
       foco: template.foco,
       tipo: 'forca' as const,
       dias_semana: strengthWeekDays.filter((_, j) => j % split.keys.length === i),
-      exercicios,
+      exercicios: ajustado.exercicios,
+      duracao_min: estimateSessionMinutes(ajustado.exercicios),
     }
   })
+
+  const tempoLabel = TEMPO_TREINO_OPTIONS.find((o) => o.value === d.tempo_treino_min)?.label ?? `${d.tempo_treino_min} min`
+  if (cortes.size > 0) {
+    motivos.push(`Para cada treino caber em ${tempoLabel} (com 5 min de aquecimento), ajustamos: ${[...cortes].join('; ')}.`)
+  }
+  if (naoCabe) {
+    avisos.push(`Mesmo enxuto, algum treino passa um pouco de ${tempoLabel}. Se o tempo apertar, faça os primeiros exercícios da lista, que são os mais importantes.`)
+  }
+  if (cortes.has('cardio fora do treino') && (E || C)) {
+    avisos.push('O cardio não coube no tempo do treino. Faça uma caminhada ou bicicleta em outro momento do dia para manter o gasto calórico.')
+  }
 
   // 6) Dias extras: cardio dedicado ou recuperação ativa
   if (extraWeekDays.length > 0) {
@@ -703,7 +776,7 @@ export function calculateTrainingPlan(d: BodyData): TrainingPlan {
       exercicios.push({
         nome: cardioMaquina,
         series: 1,
-        repeticoes: intervalado ? '20-25 min (30 s forte / 90 s leve)' : '30-40 min ritmo moderado',
+        repeticoes: cardioSessionText(d.tempo_treino_min - AQUECIMENTO_MIN - 10, intervalado),
         descanso_segundos: 0,
       })
       if (C && !baixoImpacto) exercicios.push({ nome: 'Pular corda', series: 3, repeticoes: '1 min', descanso_segundos: 60 })
@@ -721,6 +794,7 @@ export function calculateTrainingPlan(d: BodyData): TrainingPlan {
       tipo: 'cardio',
       dias_semana: extraWeekDays,
       exercicios,
+      duracao_min: estimateSessionMinutes(exercicios),
     })
   }
 

@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { CalorieHeader } from '@/components/calorie-header'
 import { MealTimeline } from '@/components/meal-timeline'
 import { WaterTracker } from '@/components/water-tracker'
@@ -8,13 +10,33 @@ import { useMeals } from '@/hooks/use-meals'
 import { useProfile } from '@/hooks/use-profile'
 import { Spinner } from '@/components/ui/spinner'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { addDays, formatDayLabel, formatShortDate, toLocalDateString } from '@/lib/date'
 
 export default function DashboardPage() {
-  // Sempre abre no dia atual (fuso local). Não é persistido de propósito.
+  // useSearchParams precisa de Suspense no App Router
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center">
+          <Spinner className="w-8 h-8" />
+        </div>
+      }
+    >
+      <Dashboard />
+    </Suspense>
+  )
+}
+
+function Dashboard() {
+  // Abre no dia atual (fuso local), a não ser que venha ?data= (ex.: depois de
+  // editar uma refeição de outro dia). A escolha não é persistida de propósito.
+  const params = useSearchParams()
   const [today, setToday] = useState(() => toLocalDateString())
-  const [selectedDate, setSelectedDate] = useState(today)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = params.get('data')
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today ? d : today
+  })
 
   // Se o app ficar aberto e virar o dia, acompanha a nova data
   // (só move a seleção se o usuário estava olhando o "hoje" antigo).
@@ -80,9 +102,20 @@ export default function DashboardPage() {
           />
 
           <div>
-            <h2 className="text-lg font-semibold mb-4">
-              {isToday ? 'Refeicoes de Hoje' : `Refeicoes de ${dayLabel === 'Ontem' ? 'Ontem' : shortDate}`}
-            </h2>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">
+                {isToday ? 'Refeições de Hoje' : `Refeições de ${dayLabel === 'Ontem' ? 'Ontem' : shortDate}`}
+              </h2>
+              {!isToday && (
+                <Link
+                  href={`/adicionar?data=${selectedDate}`}
+                  className="flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-primary hover:bg-muted"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Adicionar
+                </Link>
+              )}
+            </div>
 
             {mealsLoading ? (
               <div className="flex justify-center py-10">

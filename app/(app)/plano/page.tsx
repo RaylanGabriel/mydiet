@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { BodyDataForm } from '@/components/plan/body-data-form'
 import { NutritionPlanCard } from '@/components/plan/nutrition-plan-card'
+import { MealPlanCard } from '@/components/plan/meal-plan-card'
 import { TrainingPlanCard } from '@/components/plan/training-plan-card'
 import { useProfile } from '@/hooks/use-profile'
 import { useWorkouts } from '@/hooks/use-workouts'
@@ -15,6 +16,7 @@ import { WeightChartCard } from '@/components/plan/weight-chart-card'
 import {
   OBJETIVO_OPTIONS,
   SCIENTIFIC_SOURCES,
+  TEMPO_TREINO_PADRAO,
   calculateNutritionPlan,
   calculateTrainingPlan,
   getBodyData,
@@ -40,14 +42,16 @@ export default function PlanoPage() {
 
   const handleSubmit = async (data: BodyData) => {
     const pesoAnterior = profile?.peso_kg != null ? Number(profile.peso_kg) : null
-    const { prefere_fullbody, ...rest } = data
+    const { prefere_fullbody, tempo_treino_min, ...rest } = data
+    const temColuna = (col: string) => !!profile && col in profile
     try {
       await updateProfile({
         ...rest,
         objetivo: primaryObjetivo(data.objetivos),
-        // Só envia a coluna se ela já existe (script 010) ou se a pessoa marcou a opção,
+        // Só envia a coluna se ela já existe (scripts 010 e 011) ou se a pessoa mudou o padrão,
         // para não quebrar o salvamento antes de o script ser executado.
-        ...(prefere_fullbody || (profile && 'prefere_fullbody' in profile) ? { prefere_fullbody } : {}),
+        ...(prefere_fullbody || temColuna('prefere_fullbody') ? { prefere_fullbody } : {}),
+        ...(tempo_treino_min !== TEMPO_TREINO_PADRAO || temColuna('tempo_treino_min') ? { tempo_treino_min } : {}),
       })
       // Peso alterado pelo formulário também entra no histórico de pesagens
       if (pesoAnterior !== data.peso_kg) {
@@ -57,6 +61,11 @@ export default function PlanoPage() {
       }
     } catch (error) {
       const message = String((error as { message?: string })?.message ?? '')
+      if (message.includes('tempo_treino_min')) {
+        const friendly = new Error('Para salvar o tempo por treino, execute o script scripts/011_plan_session_time.sql no SQL Editor do Supabase.')
+        friendly.name = 'PlanSaveError'
+        throw friendly
+      }
       if (message.includes('prefere_fullbody')) {
         const friendly = new Error('Para salvar a opção full body, execute o script scripts/010_plan_fullbody.sql no SQL Editor do Supabase.')
         friendly.name = 'PlanSaveError'
@@ -175,6 +184,7 @@ export default function PlanoPage() {
                     updateProfile({ meta_calorias_diarias: nutrition.calorias, meta_agua_ml: nutrition.agua_ml })
                   }
                 />
+                <MealPlanCard plan={nutrition} />
                 <TrainingPlanCard plan={training} onCreate={() => createFromPlan(training.workouts)} />
 
                 <details className="group rounded-2xl border border-border bg-card p-4">

@@ -240,8 +240,9 @@ html.dark[data-color='rosa'] {
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
+  /* Desce também a altura da barra de treino em andamento, quando visível */
   .top-safe {
-    top: env(safe-area-inset-top);
+    top: calc(env(safe-area-inset-top) + var(--workout-bar-h, 0px));
   }
   .h-safe-top {
     height: env(safe-area-inset-top);

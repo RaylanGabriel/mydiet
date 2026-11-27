@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Check, HeartPulse, Lightbulb, Sparkles, TriangleAlert } from 'lucide-react'
+import { Check, Clock, HeartPulse, Lightbulb, Sparkles, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { DIAS_SEMANA } from '@/lib/workout-types'
@@ -83,9 +83,14 @@ export function TrainingPlanCard({ plan, onCreate }: TrainingPlanCardProps) {
                 </p>
                 <p className="text-sm text-muted-foreground">{w.foco}</p>
               </div>
-              <p className="text-right text-xs font-medium text-primary">
-                {w.dias_semana.map((d) => DIAS_SEMANA[d]).join(' · ')}
-              </p>
+              <div className="flex flex-col items-end gap-1">
+                <p className="text-right text-xs font-medium text-primary">
+                  {w.dias_semana.map((d) => DIAS_SEMANA[d]).join(' · ')}
+                </p>
+                <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  <Clock className="h-3 w-3" aria-hidden="true" />~{w.duracao_min} min
+                </span>
+              </div>
             </div>
             <ol className="mt-2 flex flex-col gap-1">
               {w.exercicios.map((ex) => (
